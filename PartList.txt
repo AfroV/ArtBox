@@ -1,0 +1,13 @@
+Light plates
+USA
+https://us.store.bambulab.com/products/lithophane-led-backlight-board-kit?id=42816246939784&skr=yes
+
+EU
+https://eu.store.bambulab.com/products/lithophane-led-backlight-board-kit?id=49169161027932
+
+
+Usb to PH2.0 (Will be used to get pwer from PI to Lights)
+USA
+https://us.store.bambulab.com/products/usb-a-power-cable-with-ph2-0-connector
+EU
+https://eu.store.bambulab.com/products/usb-a-power-cable-with-ph2-0-connector

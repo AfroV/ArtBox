@@ -1,0 +1,28 @@
+# Download and add NFT to WebUI
+python3 nft_downloader.py 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D 1
+
+# The script will now show:
+# ✅ NFT processing completed!
+# 🎨 View your NFT in WebUI at: http://127.0.0.1:5001/webui/
+# 📁 Check the Files tab, look in: /nft_collections/936f13D/
+How to View Your NFTs:
+
+Open http://127.0.0.1:5001/webui/ in your browser
+Click the "Files" tab
+Navigate to "nft_collections" folder
+Find your collection folder (named with contract suffix)
+Your NFT image and metadata will be there!
+
+
+What You'll See in WebUI:
+/nft_collections/
+├── README.md                    # 📖 Main navigation guide
+├── 936f13D/                     # Bored Ape Yacht Club
+│   ├── collection_info.json     # 📋 Collection details & token index
+│   ├── token_1_image.png        # 🖼️ NFT image
+│   ├── token_1_metadata.json    # 📄 Raw metadata
+│   └── token_2_image.png
+└── 3241C544/                    # Azuki collection
+    ├── collection_info.json
+    ├── token_100_image.jpg
+    └── token_100_metadata.json
