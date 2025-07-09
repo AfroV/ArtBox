@@ -1,0 +1,52 @@
+# Example CSV files for NFT processing
+
+# File: basic_nfts.csv
+# Basic format with contract address and token ID
+contract_address,token_id
+0x1234567890123456789012345678901234567890,1
+0x1234567890123456789012345678901234567890,2
+0x1234567890123456789012345678901234567890,3
+0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,100
+0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,101
+0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,102
+
+# File: nft_collection_extended.csv
+# Extended format with additional metadata (optional columns - only contract_address and token_id are used)
+contract_address,token_id,collection_name,notes
+0x1234567890123456789012345678901234567890,1,CryptoPunks,Punk #1
+0x1234567890123456789012345678901234567890,2,CryptoPunks,Punk #2
+0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,100,BoredApes,Ape #100
+0xabcdefabcdefabcdefabcdefabcdefabcdefabcd,101,BoredApes,Ape #101
+
+# File: popular_nfts.csv
+# Real-world examples (use actual contract addresses)
+contract_address,token_id,collection_name
+0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb,1,CryptoPunks
+0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb,2,CryptoPunks
+0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d,1,BoredApeYachtClub
+0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d,2,BoredApeYachtClub
+0x60e4d786628fea6478f785a6d7e704777c86a7c6,1,MutantApeYachtClub
+0x60e4d786628fea6478f785a6d7e704777c86a7c6,2,MutantApeYachtClub
+
+# File: azuki_collection.csv
+# Example with Azuki NFT collection
+contract_address,token_id
+0xed5af388653567af2f388e6224dc7c4b3241c544,1
+0xed5af388653567af2f388e6224dc7c4b3241c544,2
+0xed5af388653567af2f388e6224dc7c4b3241c544,3
+0xed5af388653567af2f388e6224dc7c4b3241c544,4
+0xed5af388653567af2f388e6224dc7c4b3241c544,5
+
+# File: large_batch.csv
+# Template for processing many NFTs
+contract_address,token_id
+0x1234567890123456789012345678901234567890,1
+0x1234567890123456789012345678901234567890,2
+0x1234567890123456789012345678901234567890,3
+0x1234567890123456789012345678901234567890,4
+0x1234567890123456789012345678901234567890,5
+0x1234567890123456789012345678901234567890,6
+0x1234567890123456789012345678901234567890,7
+0x1234567890123456789012345678901234567890,8
+0x1234567890123456789012345678901234567890,9
+0x1234567890123456789012345678901234567890,10
