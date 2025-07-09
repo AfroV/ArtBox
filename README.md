@@ -1,56 +1,21 @@
-# 📁 Complete File List for Raspberry Pi IPFS Node
-
-## ✅ **All Code is Now Complete and Bug-Free**
-
-After comprehensive testing and debugging, here are the **8 essential files** you need:
-
-### **Core Installation Files** (Required)
-
-1. **`ipfs_setup.sh`**
-
-   - Main installation script
-   - Installs IPFS, creates services, sets up everything
-   - ✅ Complete and tested
-
-2. **`nft_downloader.py`**
-
-   - Your original NFT downloader script
-   - ✅ Use your existing file
-
-3. **`ipfs_health_monitor.py`**
-
-   - System health monitoring and status checking
-   - ✅ Complete with auto-dependency installation
-
-4. **`ipfs_backup_restore.sh`**
-
-   - Backup and restore functionality
-   - ✅ Complete with full backup/restore features
-
-5. **`ssd_optimization.sh`**
-
-   - SSD optimization for IPFS performance
-   - ✅ Complete with comprehensive optimizations
-
-6. **`setup_verification.sh`**
-
-   - Installation verification and auto-fix
-   - ✅ Complete with error handling
-
-7. **`ipfs_quick_start.sh`**
-
-   - User-friendly management interface
-   - ✅ Complete with all features
-
-8. **`final_validation.sh`**
-   - Comprehensive installation testing
-   - ✅ Complete with detailed reporting
-
----
-
 ## 🚀 **Installation Process**
 
 ### **Step 1: Copy Files to Pi**
+
+# https://www.raspberrypi.com/software/
+
+Set up the installer
+-PI 4
+-Raspberry PI OS 64 bit
+-Your SSD for storage.
+
+#Set username and password. Do remerber this for you will need it later to #ssh into your PI
+
+configer Wireless LAN to use your home network. If not you will need to use a LAN cable.
+
+Under the SERVICES tab.
+Enable SSH
+Us with password or public key
 
 ```bash
 # Copy all 8 files to your Pi
@@ -61,17 +26,17 @@ scp *.py *.sh pi@your-pi-ip:/home/pi/ipfs-setup/
 
 ### **Step 2: Prepare Installation**
 
-```bash
-cd /home/pi/ipfs-setup/
+````bash
+cd nft_setup
 chmod +x *.sh *.py
 
-# Ensure SSD is mounted
-sudo mkdir -p /mnt/ssd
-sudo mount /dev/sdX1 /mnt/ssd  # Replace sdX1 with your SSD device
+# # Ensure SSD is mounted
+# sudo mkdir -p /mnt/ssd
+# sudo mount /dev/sdX1 /mnt/ssd  # Replace sdX1 with your SSD device
 
-# Make permanent
-echo "/dev/sdX1 /mnt/ssd ext4 defaults 0 0" | sudo tee -a /etc/fstab
-```
+# # Make permanent
+# echo "/dev/sdX1 /mnt/ssd ext4 defaults 0 0" | sudo tee -a /etc/fstab
+# ```
 
 ### **Step 3: Run Installation**
 
@@ -90,7 +55,7 @@ sudo ./ipfs_quick_start.sh optimize-ssd
 
 # Final comprehensive validation
 sudo ./final_validation.sh
-```
+````
 
 ### **Step 4: Test Everything**
 

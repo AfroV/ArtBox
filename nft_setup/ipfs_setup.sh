@@ -1,114 +1,26 @@
-# Create command wrapper scripts
-cat > /usr/local/bin/ipfs-tools << 'EOF'
 #!/bin/bash
-source /opt/ipfs-tools/venv/bin/activate 2>/dev/null || true
-case "$1" in
-    "status")
-        if [ -f "/opt/ipfs-tools/ipfs_health_monitor.py" ]; then
-            python3 /opt/ipfs-tools/ipfs_health_monitor.py
-        else
-            python3 /opt/ipfs-tools/ipfs_status.py
-        fi
-        ;;
-    "monitor")
-        shift
-        if [ -f "/opt/ipfs-tools/ipfs_health_monitor.py" ]; then
-            python3 /opt/ipfs-tools/ipfs_health_monitor.py --continuous "$@"
-        else
-            echo "Health monitor not available"
-        fi
-        ;;
-    "alerts")
-        if [ -f "/opt/ipfs-tools/ipfs_health_monitor.py" ]; then
-            python3 /opt/ipfs-tools/ipfs_health_monitor.py --alerts
-        else
-            echo "Health monitor not available"
-        fi
-        ;;
-    "download")
-        shift
-        python3 /opt/ipfs-tools/nft_downloader.py "$@"
-        ;;
-    "csv")
-        shift
-        python3 /opt/ipfs-tools/process_nft_csv.py "$@"
-        ;;
-    "cleanup")
-        shift
-        python3 /opt/ipfs-tools/cleanup_nft.py "$@"
-        ;;
-    "backup")
-        shift
-        if [ -f "/opt/ipfs-tools/ipfs_backup_restore.sh" ]; then
-            /opt/ipfs-tools/ipfs_backup_restore.sh "$@"
-        else
-            echo "Backup script not available"
-        fi
-        ;;
-    "ssd-health")
-        if [ -f "/opt/ipfs-tools/ssd_health_monitor.py" ]; then
-            python3 /opt/ipfs-tools/ssd_health_monitor.py
-        else
-            echo "SSD health monitor not available"
-        fi
-        ;;
-    "ssd-optimize")
-        echo "SSD optimization requires root privileges"
-        echo "Run: sudo /opt/ipfs-tools/ssd_optimization.sh"
-        ;;
-    *)
-        echo "IPFS Tools for Raspberry Pi"
-        echo "Usage: ipfs-tools [command] [options]"
-        echo ""
-        echo "Status & Monitoring:"
-        echo "  status                  Check IPFS node health"
-        echo "  monitor <interval>      Continuous monitoring"
-        echo "  alerts                  Check for alerts only"
-        echo "  ssd-health              Check SSD health status"
-        echo ""
-        echo "NFT Management:"
-        echo "  download <contract> <token_id>  Download single NFT"
-        echo "  csv <file.csv>          Process NFTs from CSV file"
-        echo "  cleanup --list          List all stored NFTs"
-        echo "  cleanup --cleanup <contract> <token_id>  Remove NFT"
-        echo ""
-        echo "Backup & Restore:"
-        echo "  backup backup           Create full backup"
-        echo "  backup list             List available backups"
-        echo "  backup restore-*        Restore from backup"
-        echo ""
-        echo "SSD Optimization:"
-        echo "  ssd-health              Check SSD health and status"
-        echo "  ssd-optimize            Run SSD optimization (requires sudo)"
-        echo ""
-        echo "Examples:"
-        echo "  ipfs-tools status"
-        echo "  ipfs-tools ssd-health"
-        echo "  ipfs-tools monitor 60"
-        echo "  ipfs-tools download 0x1234... 1"
-        echo "  ipfs-tools csv nfts.csv"
-        echo "  sudo ipfs-tools ssd-optimize"
-        ;;
-esac
-EOF#!/bin/bash
 
-# IPFS Setup Script for Raspberry Pi
+# IPFS Setup Script for Raspberry Pi - Single SSD Version
 # This script installs and configures IPFS (Kubo) on Raspberry Pi OS
+# Designed for setups where everything runs from one SSD
 
 set -e
 
-# Configuration
-IPFS_VERSION="v0.29.0"
+# Configuration - Paths adjusted for single SSD setup
+IPFS_VERSION="v0.35.0"
 IPFS_USER="ipfs"
 IPFS_HOME="/opt/ipfs"
-IPFS_DATA_DIR="/mnt/ssd/ipfs"
-NFT_DATA_DIR="/mnt/ssd/nft_data"
+IPFS_BASE_DIR="/opt/ipfs-data"
+IPFS_DATA_DIR="/opt/ipfs-data/ipfs"
+NFT_DATA_DIR="/opt/ipfs-data/nft_data"
+BACKUP_DIR="/opt/ipfs-data/backups"
 SCRIPT_DIR="/opt/ipfs-tools"
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 print_status() {
@@ -123,21 +35,44 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+print_header() {
+    echo -e "${BLUE}$1${NC}"
+}
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
     print_error "Please run as root (use sudo)"
     exit 1
 fi
 
-# Check if SSD is mounted
-if ! mountpoint -q /mnt/ssd; then
-    print_error "SSD not mounted at /mnt/ssd"
-    print_status "Please mount your SSD first:"
-    print_status "1. Create mount point: sudo mkdir -p /mnt/ssd"
-    print_status "2. Find your SSD: lsblk"
-    print_status "3. Mount: sudo mount /dev/sdX1 /mnt/ssd"
-    print_status "4. Add to fstab for permanent mounting"
-    exit 1
+# Check available space and confirm we're on SSD
+print_status "Checking storage setup..."
+ROOT_DEVICE=$(df / | tail -1 | awk '{print $1}' | sed 's/[0-9]*$//')
+AVAILABLE_GB=$(df / | tail -1 | awk '{print $4}')
+AVAILABLE_GB_HUMAN=$(df -h / | tail -1 | awk '{print $4}')
+
+print_status "Root device: $ROOT_DEVICE"
+print_status "Available space: $AVAILABLE_GB_HUMAN"
+
+# Check if it's an SSD (non-rotational)
+if [ -f "/sys/block/$(basename $ROOT_DEVICE)/queue/rotational" ]; then
+    ROTATIONAL=$(cat "/sys/block/$(basename $ROOT_DEVICE)/queue/rotational")
+    if [ "$ROTATIONAL" = "0" ]; then
+        print_status "Confirmed: Running on SSD storage"
+    else
+        print_warning "Warning: Storage appears to be rotational (HDD/SD card)"
+    fi
+fi
+
+# Check minimum space requirement (10GB)
+if [ "$AVAILABLE_GB" -lt 10485760 ]; then  # Less than 10GB in KB
+    print_warning "Less than 10GB available space ($AVAILABLE_GB_HUMAN)"
+    print_warning "IPFS works better with more storage space"
+    echo -n "Continue anyway? (y/N): "
+    read -r response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
 fi
 
 print_status "Starting IPFS installation..."
@@ -148,7 +83,7 @@ apt update && apt upgrade -y
 
 # Install dependencies
 print_status "Installing dependencies..."
-apt install -y curl wget python3 python3-pip python3-venv git smartmontools
+apt install -y curl wget python3 python3-pip python3-venv python3-full git smartmontools
 
 # Create ipfs user
 print_status "Creating IPFS user..."
@@ -158,8 +93,18 @@ fi
 
 # Create directories
 print_status "Creating directories..."
-mkdir -p "$IPFS_HOME" "$IPFS_DATA_DIR" "$NFT_DATA_DIR" "$SCRIPT_DIR"
-chown -R "$IPFS_USER:$IPFS_USER" "$IPFS_HOME" "$IPFS_DATA_DIR" "$NFT_DATA_DIR"
+mkdir -p "$IPFS_HOME" "$IPFS_BASE_DIR" "$IPFS_DATA_DIR" "$NFT_DATA_DIR" "$BACKUP_DIR" "$SCRIPT_DIR"
+chown -R "$IPFS_USER:$IPFS_USER" "$IPFS_HOME" "$IPFS_BASE_DIR"
+
+# Create compatibility symlink for scripts that expect /mnt/ssd
+print_status "Creating compatibility symlink..."
+if [ ! -e "/mnt/ssd" ]; then
+    mkdir -p /mnt
+    ln -sf "$IPFS_BASE_DIR" "/mnt/ssd"
+    print_status "Created symlink: /mnt/ssd -> $IPFS_BASE_DIR"
+elif [ ! -L "/mnt/ssd" ]; then
+    print_warning "/mnt/ssd exists but is not a symlink - leaving as is"
+fi
 
 # Download and install IPFS
 print_status "Downloading IPFS Kubo $IPFS_VERSION..."
@@ -218,52 +163,49 @@ EOF
 print_status "Enabling IPFS service..."
 systemctl daemon-reload
 systemctl enable ipfs
-systemctl start ipfs
+
+# Try to start IPFS service
+print_status "Starting IPFS service..."
+if systemctl start ipfs; then
+    print_status "IPFS service started successfully"
+else
+    print_warning "IPFS service failed to start - will continue with setup"
+fi
 
 # Wait for IPFS to start
-print_status "Waiting for IPFS to start..."
+print_status "Waiting for IPFS to initialize..."
 sleep 10
 
-# Install Python dependencies for NFT downloader
+# Install Python dependencies
 print_status "Setting up Python environment..."
 python3 -m venv "$SCRIPT_DIR/venv"
-source "$SCRIPT_DIR/venv/bin/activate"
-pip install requests psutil
 
-# Copy NFT downloader script
-print_status "Installing NFT management tools..."
+# Activate virtual environment and install packages
+print_status "Installing Python dependencies..."
+"$SCRIPT_DIR/venv/bin/pip" install requests psutil
+
+# Copy management scripts
+print_status "Installing management tools..."
+
+# Copy NFT downloader script if available
 if [ -f "nft_downloader.py" ]; then
     cp "nft_downloader.py" "$SCRIPT_DIR/"
+    chmod +x "$SCRIPT_DIR/nft_downloader.py"
+    print_status "NFT downloader installed"
 else
     print_warning "nft_downloader.py not found in current directory"
-    print_status "Please copy your NFT downloader script to $SCRIPT_DIR/nft_downloader.py"
 fi
 
-# Copy health monitor if available
-if [ -f "ipfs_health_monitor.py" ]; then
-    cp "ipfs_health_monitor.py" "$SCRIPT_DIR/"
-    print_status "Health monitor installed"
-fi
+# Copy other scripts if available
+for script in "ipfs_health_monitor.py" "ipfs_backup_restore.sh" "ssd_optimization.sh"; do
+    if [ -f "$script" ]; then
+        cp "$script" "$SCRIPT_DIR/"
+        chmod +x "$SCRIPT_DIR/$script"
+        print_status "$(basename "$script") installed"
+    fi
+done
 
-# Copy backup script if available  
-if [ -f "ipfs_backup_restore.sh" ]; then
-    cp "ipfs_backup_restore.sh" "$SCRIPT_DIR/"
-    chmod +x "$SCRIPT_DIR/ipfs_backup_restore.sh"
-    ln -sf "$SCRIPT_DIR/ipfs_backup_restore.sh" /usr/local/bin/ipfs-backup
-    print_status "Backup tools installed"
-fi
-
-# Copy SSD optimization script if available
-if [ -f "ssd_optimization.sh" ]; then
-    cp "ssd_optimization.sh" "$SCRIPT_DIR/"
-    chmod +x "$SCRIPT_DIR/ssd_optimization.sh"
-    print_status "SSD optimization tools installed"
-fi
-
-# Create management scripts
-print_status "Creating management scripts..."
-
-# IPFS status script
+# Create IPFS status script
 cat > "$SCRIPT_DIR/ipfs_status.py" << 'EOF'
 #!/usr/bin/env python3
 import subprocess
@@ -273,16 +215,22 @@ import json
 
 def check_ipfs_daemon():
     try:
-        response = requests.get('http://127.0.0.1:5001/api/v0/version', timeout=5)
+        # Use POST instead of GET, just like the working curl command
+        response = requests.post('http://127.0.0.1:5001/api/v0/version', timeout=15)
         if response.status_code == 200:
             version_info = response.json()
             print(f"✅ IPFS daemon is running")
             print(f"Version: {version_info['Version']}")
+            print(f"System: {version_info.get('System', 'Unknown')}")
+            print(f"Golang: {version_info.get('Golang', 'Unknown')}")
             return True
-    except:
-        pass
+    except requests.exceptions.ConnectionError:
+        print("❌ IPFS daemon is not running (connection refused)")
+    except requests.exceptions.Timeout:
+        print("❌ IPFS daemon is not responding (timeout)")
+    except Exception as e:
+        print(f"❌ IPFS daemon error: {e}")
     
-    print("❌ IPFS daemon is not running")
     return False
 
 def check_ipfs_service():
@@ -301,19 +249,56 @@ def check_ipfs_service():
 
 def get_ipfs_stats():
     try:
-        response = requests.get('http://127.0.0.1:5001/api/v0/stats/repo', timeout=5)
+        # Use POST for stats endpoints too
+        response = requests.post('http://127.0.0.1:5001/api/v0/stats/repo', timeout=15)
         if response.status_code == 200:
             stats = response.json()
             print(f"📊 Repository stats:")
             print(f"  Storage: {stats.get('RepoSize', 0) / 1024 / 1024:.2f} MB")
-            print(f"  Objects: {stats.get('NumObjects', 0)}")
+            print(f"  Objects: {stats.get('NumObjects', 0):,}")
         
-        response = requests.get('http://127.0.0.1:5001/api/v0/swarm/peers', timeout=5)
+        response = requests.post('http://127.0.0.1:5001/api/v0/swarm/peers', timeout=15)
         if response.status_code == 200:
             peers = response.json()
-            print(f"  Connected peers: {len(peers.get('Peers', []))}")
+            peer_count = len(peers.get('Peers', []))
+            print(f"  Connected peers: {peer_count}")
+            
+            # Show connection status
+            if peer_count > 0:
+                print("  🌐 Connected to IPFS network")
+            else:
+                print("  ⚠️  Not connected to any peers yet (this is normal at startup)")
+    except Exception as e:
+        print(f"❌ Could not get IPFS stats: {e}")
+
+def get_storage_info():
+    try:
+        result = subprocess.run(['df', '-h', '/opt/ipfs-data'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 1:
+                parts = lines[1].split()
+                print(f"💾 Storage info:")
+                print(f"  Total: {parts[1]}")
+                print(f"  Used: {parts[2]} ({parts[4]})")
+                print(f"  Available: {parts[3]}")
     except:
-        print("❌ Could not get IPFS stats")
+        print("❌ Could not get storage info")
+
+def test_ipfs_id():
+    """Test IPFS ID command to verify full functionality"""
+    try:
+        response = requests.post('http://127.0.0.1:5001/api/v0/id', timeout=15)
+        if response.status_code == 200:
+            id_info = response.json()
+            print(f"🆔 Node ID: {id_info.get('ID', 'Unknown')[:12]}...")
+            addresses = id_info.get('Addresses', [])
+            print(f"📡 Listening on {len(addresses)} addresses")
+            return True
+    except Exception as e:
+        print(f"⚠️  Could not get node ID: {e}")
+    return False
 
 if __name__ == "__main__":
     print("🔍 IPFS Status Check")
@@ -324,14 +309,23 @@ if __name__ == "__main__":
     
     if daemon_ok:
         get_ipfs_stats()
-        print("\n🌐 Web UI: http://127.0.0.1:5001/webui/")
+        test_ipfs_id()
     
-    if not daemon_ok or not service_ok:
+    get_storage_info()
+    
+    if daemon_ok:
+        print("\n🌐 Web Interfaces:")
+        print("  WebUI: http://127.0.0.1:5001/webui/")
+        print("  Gateway: http://127.0.0.1:8080/ipfs/")
+        print("\n✨ IPFS is ready to use!")
+    else:
         print("\n🔧 Troubleshooting:")
-        print("  Start service: sudo systemctl start ipfs")
-        print("  Check logs: sudo journalctl -u ipfs -f")
+        print("  Check service: sudo systemctl status ipfs")
+        print("  View logs: sudo journalctl -u ipfs -f")
+        print("  Restart: sudo systemctl restart ipfs")
         sys.exit(1)
 EOF
+
 
 # CSV NFT processor
 cat > "$SCRIPT_DIR/process_nft_csv.py" << 'EOF'
@@ -351,7 +345,7 @@ except ImportError:
     print("❌ nft_downloader.py not found. Please ensure it's in /opt/ipfs-tools/")
     sys.exit(1)
 
-def process_csv_file(csv_file, output_dir="/mnt/ssd/nft_data"):
+def process_csv_file(csv_file, output_dir="/opt/ipfs-data/nft_data"):
     """Process NFTs from CSV file"""
     print(f"📁 Processing CSV file: {csv_file}")
     print(f"📂 Output directory: {output_dir}")
@@ -431,19 +425,7 @@ def unpin_hash(ipfs_hash, ipfs_api_url="http://127.0.0.1:5001"):
         print(f"Error unpinning hash {ipfs_hash}: {e}")
         return False
 
-def remove_from_mfs(mfs_path, ipfs_api_url="http://127.0.0.1:5001"):
-    """Remove file from MFS"""
-    try:
-        response = requests.post(
-            f"{ipfs_api_url}/api/v0/files/rm",
-            params={'arg': mfs_path}
-        )
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Error removing from MFS {mfs_path}: {e}")
-        return False
-
-def cleanup_nft(contract_address, token_id, data_dir="/mnt/ssd/nft_data"):
+def cleanup_nft(contract_address, token_id, data_dir="/opt/ipfs-data/nft_data"):
     """Clean up NFT files and IPFS pins"""
     print(f"🧹 Cleaning up NFT: {contract_address} #{token_id}")
     
@@ -463,21 +445,6 @@ def cleanup_nft(contract_address, token_id, data_dir="/mnt/ssd/nft_data"):
             if summary.get('image_hash'):
                 print(f"🖼️  Unpinning image hash: {summary['image_hash']}")
                 unpin_hash(summary['image_hash'])
-            
-            # Remove from MFS
-            collection_name = contract_address[-8:]
-            mfs_base_path = f"/nft_collections/{collection_name}"
-            
-            metadata_mfs_path = f"{mfs_base_path}/token_{token_id}_metadata.json"
-            print(f"📁 Removing from MFS: {metadata_mfs_path}")
-            remove_from_mfs(metadata_mfs_path)
-            
-            # Try to determine image extension and remove
-            for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']:
-                image_mfs_path = f"{mfs_base_path}/token_{token_id}_image{ext}"
-                if remove_from_mfs(image_mfs_path):
-                    print(f"📁 Removed from MFS: {image_mfs_path}")
-                    break
             
         except Exception as e:
             print(f"❌ Error reading summary file: {e}")
@@ -504,7 +471,7 @@ def cleanup_nft(contract_address, token_id, data_dir="/mnt/ssd/nft_data"):
     
     print(f"✅ Cleanup completed for {contract_address} #{token_id}")
 
-def list_nfts(data_dir="/mnt/ssd/nft_data"):
+def list_nfts(data_dir="/opt/ipfs-data/nft_data"):
     """List all NFTs in the data directory"""
     print("📋 NFTs in storage:")
     print("-" * 50)
@@ -539,7 +506,7 @@ if __name__ == "__main__":
     parser.add_argument('--list', action='store_true', help='List all NFTs')
     parser.add_argument('--cleanup', nargs=2, metavar=('CONTRACT', 'TOKEN_ID'), 
                        help='Cleanup specific NFT')
-    parser.add_argument('--data-dir', default='/mnt/ssd/nft_data', 
+    parser.add_argument('--data-dir', default='/opt/ipfs-data/nft_data', 
                        help='NFT data directory')
     
     args = parser.parse_args()
@@ -555,54 +522,118 @@ EOF
 
 # Make scripts executable
 chmod +x "$SCRIPT_DIR"/*.py
-find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \;
+find "$SCRIPT_DIR" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
 
-# Create convenience aliases
-mkdir -p /etc/bash.bashrc.d/
-cat > /etc/bash.bashrc.d/ipfs-tools << 'EOF'
-# IPFS Tools aliases
-alias ipfs-status='python3 /opt/ipfs-tools/ipfs_status.py'
-alias ipfs-nft='python3 /opt/ipfs-tools/nft_downloader.py'
-alias ipfs-csv='python3 /opt/ipfs-tools/process_nft_csv.py'
-alias ipfs-cleanup='python3 /opt/ipfs-tools/cleanup_nft.py'
-EOF
-
-# Create command wrapper scripts
+# Create command wrapper
 cat > /usr/local/bin/ipfs-tools << 'EOF'
 #!/bin/bash
-source /opt/ipfs-tools/venv/bin/activate
+source /opt/ipfs-tools/venv/bin/activate 2>/dev/null || true
 case "$1" in
     "status")
-        python3 /opt/ipfs-tools/ipfs_status.py
+        if [ -f "/opt/ipfs-tools/ipfs_health_monitor.py" ]; then
+            python3 /opt/ipfs-tools/ipfs_health_monitor.py
+        else
+            python3 /opt/ipfs-tools/ipfs_status.py
+        fi
+        ;;
+    "monitor")
+        shift
+        if [ -f "/opt/ipfs-tools/ipfs_health_monitor.py" ]; then
+            python3 /opt/ipfs-tools/ipfs_health_monitor.py --continuous "$@"
+        else
+            echo "Health monitor not available"
+        fi
+        ;;
+    "alerts")
+        if [ -f "/opt/ipfs-tools/ipfs_health_monitor.py" ]; then
+            python3 /opt/ipfs-tools/ipfs_health_monitor.py --alerts
+        else
+            echo "Health monitor not available"
+        fi
         ;;
     "download")
         shift
-        python3 /opt/ipfs-tools/nft_downloader.py "$@"
+        if [ -f "/opt/ipfs-tools/nft_downloader.py" ]; then
+            python3 /opt/ipfs-tools/nft_downloader.py "$@"
+        else
+            echo "NFT downloader not installed"
+        fi
         ;;
     "csv")
         shift
-        python3 /opt/ipfs-tools/process_nft_csv.py "$@"
+        if [ -f "/opt/ipfs-tools/process_nft_csv.py" ]; then
+            python3 /opt/ipfs-tools/process_nft_csv.py "$@"
+        else
+            echo "CSV processor not installed"
+        fi
         ;;
     "cleanup")
         shift
-        python3 /opt/ipfs-tools/cleanup_nft.py "$@"
+        if [ -f "/opt/ipfs-tools/cleanup_nft.py" ]; then
+            python3 /opt/ipfs-tools/cleanup_nft.py "$@"
+        else
+            echo "Cleanup tool not installed"
+        fi
+        ;;
+    "backup")
+        shift
+        if [ -f "/opt/ipfs-tools/ipfs_backup_restore.sh" ]; then
+            /opt/ipfs-tools/ipfs_backup_restore.sh "$@"
+        else
+            echo "Backup script not available"
+        fi
+        ;;
+    "ssd-health")
+        if [ -f "/opt/ipfs-tools/ssd_health_monitor.py" ]; then
+            python3 /opt/ipfs-tools/ssd_health_monitor.py
+        else
+            echo "SSD health monitor not available"
+        fi
+        ;;
+    "ssd-optimize")
+        if [ -f "/opt/ipfs-tools/ssd_optimization.sh" ]; then
+            echo "SSD optimization requires root privileges"
+            echo "Run: sudo /opt/ipfs-tools/ssd_optimization.sh"
+        else
+            echo "SSD optimization script not available"
+        fi
         ;;
     *)
-        echo "IPFS Tools for Raspberry Pi"
+        echo "IPFS Tools for Raspberry Pi (Single SSD)"
         echo "Usage: ipfs-tools [command] [options]"
         echo ""
-        echo "Commands:"
-        echo "  status              Check IPFS daemon status"
+        echo "Status & Monitoring:"
+        echo "  status                  Check IPFS node health"
+        echo "  monitor <interval>      Continuous monitoring"
+        echo "  alerts                  Check for alerts only"
+        echo "  ssd-health              Check SSD health status"
+        echo ""
+        echo "NFT Management:"
         echo "  download <contract> <token_id>  Download single NFT"
-        echo "  csv <file.csv>      Process NFTs from CSV file"
-        echo "  cleanup --list      List all stored NFTs"
+        echo "  csv <file.csv>          Process NFTs from CSV file"
+        echo "  cleanup --list          List all stored NFTs"
         echo "  cleanup --cleanup <contract> <token_id>  Remove NFT"
+        echo ""
+        echo "Backup & Restore:"
+        echo "  backup backup           Create full backup"
+        echo "  backup list             List available backups"
+        echo ""
+        echo "SSD Optimization:"
+        echo "  ssd-health              Check SSD health and status"
+        echo "  ssd-optimize            Run SSD optimization (requires sudo)"
+        echo ""
+        echo "Data Locations:"
+        echo "  IPFS data: /opt/ipfs-data/ipfs"
+        echo "  NFT data: /opt/ipfs-data/nft_data"
+        echo "  Backups: /opt/ipfs-data/backups"
+        echo "  Compatibility: /mnt/ssd -> /opt/ipfs-data"
         echo ""
         echo "Examples:"
         echo "  ipfs-tools status"
+        echo "  ipfs-tools ssd-health"
+        echo "  ipfs-tools monitor 60"
         echo "  ipfs-tools download 0x1234... 1"
         echo "  ipfs-tools csv nfts.csv"
-        echo "  ipfs-tools cleanup --list"
         ;;
 esac
 EOF
@@ -610,14 +641,19 @@ EOF
 chmod +x /usr/local/bin/ipfs-tools
 
 # Set ownership
-chown -R "$IPFS_USER:$IPFS_USER" "$SCRIPT_DIR"
+chown -R "$IPFS_USER:$IPFS_USER" "$SCRIPT_DIR" "$IPFS_BASE_DIR"
 
 print_status "Installation completed successfully!"
 print_status ""
 print_status "📁 Data directories:"
+print_status "  Base: $IPFS_BASE_DIR"
 print_status "  IPFS data: $IPFS_DATA_DIR"
 print_status "  NFT data: $NFT_DATA_DIR"
+print_status "  Backups: $BACKUP_DIR"
 print_status "  Scripts: $SCRIPT_DIR"
+print_status ""
+print_status "🔗 Compatibility:"
+print_status "  /mnt/ssd -> $IPFS_BASE_DIR (symlink for other scripts)"
 print_status ""
 print_status "🔧 Management commands:"
 print_status "  ipfs-tools status              - Check IPFS status"
@@ -635,9 +671,34 @@ print_status "  sudo systemctl stop ipfs       - Stop IPFS"
 print_status "  sudo systemctl restart ipfs    - Restart IPFS"
 print_status "  sudo journalctl -u ipfs -f     - View logs"
 
+# Try to start IPFS service again if it's not running
+if ! systemctl is-active --quiet ipfs; then
+    print_status "Attempting to restart IPFS service..."
+    systemctl restart ipfs
+    sleep 5
+fi
+
 # Run initial status check
 print_status "Running initial status check..."
 sleep 5
-python3 "$SCRIPT_DIR/ipfs_status.py"
+if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
+    "$SCRIPT_DIR/venv/bin/python3" "$SCRIPT_DIR/ipfs_status.py"
+else
+    python3 "$SCRIPT_DIR/ipfs_status.py"
+fi
 
-print_status "🎉 Setup complete! Your IPFS node is ready to use."
+if systemctl is-active --quiet ipfs; then
+    print_status "🎉 Setup complete! Your IPFS node is ready to use."
+    print_status ""
+    print_status "💡 Quick Start:"
+    print_status "  ipfs-tools status           - Check everything is working"
+    print_status "  ipfs-tools ssd-health       - Check your SSD health"
+    print_status ""
+    print_status "🌐 Access your IPFS node:"
+    print_status "  Web UI: http://$(hostname -I | awk '{print $1}'):5001/webui/"
+    print_status "  Gateway: http://$(hostname -I | awk '{print $1}'):8080/ipfs/"
+else
+    print_warning "Setup completed but IPFS service is not running"
+    print_status "Check logs with: sudo journalctl -u ipfs -f"
+    print_status "Try restarting: sudo systemctl restart ipfs"
+fi
