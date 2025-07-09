@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# IPFS Setup Script for Raspberry Pi - Single SSD Version
+# IPFS Setup Script for Raspberry Pi - Single SSD Version with Improved File Copying
 # This script installs and configures IPFS (Kubo) on Raspberry Pi OS
 # Designed for setups where everything runs from one SSD
 
@@ -39,11 +39,130 @@ print_header() {
     echo -e "${BLUE}$1${NC}"
 }
 
+# Improved file copying function
+copy_management_script() {
+    local script_name="$1"
+    local description="$2"
+    local is_required="${3:-false}"
+    
+    print_status "Looking for $script_name..."
+    
+    # Check multiple possible locations
+    local script_path=""
+    local search_paths=(
+        "./$script_name"                    # Current directory
+        "$(dirname "$0")/$script_name"      # Same directory as setup script
+        "$HOME/nft_setup/$script_name"      # Common location
+        "/tmp/$script_name"                 # Temporary location
+    )
+    
+    for path in "${search_paths[@]}"; do
+        if [ -f "$path" ]; then
+            script_path="$path"
+            print_status "Found $script_name at: $path"
+            break
+        fi
+    done
+    
+    if [ -n "$script_path" ]; then
+        # Attempt to copy the file
+        if cp "$script_path" "$SCRIPT_DIR/"; then
+            chmod +x "$SCRIPT_DIR/$script_name"
+            chown ipfs:ipfs "$SCRIPT_DIR/$script_name"
+            print_status "✅ $description installed successfully"
+            return 0
+        else
+            print_error "Failed to copy $script_name to $SCRIPT_DIR/"
+            if [ "$is_required" = "true" ]; then
+                return 1
+            fi
+        fi
+    else
+        if [ "$is_required" = "true" ]; then
+            print_error "$script_name not found in any expected location"
+            print_status "Searched in:"
+            for path in "${search_paths[@]}"; do
+                print_status "  - $path"
+            done
+            return 1
+        else
+            print_warning "$script_name not found - will create basic version"
+        fi
+    fi
+    
+    return 0
+}
+
+# Function to create a basic NFT downloader if original not found
+create_basic_nft_downloader() {
+    print_status "Creating basic NFT downloader..."
+    
+    cat > "$SCRIPT_DIR/nft_downloader.py" << 'EOF'
+#!/usr/bin/env python3
+"""
+Basic NFT Downloader and IPFS Pinner
+Downloads NFT metadata and images, then pins them to IPFS
+"""
+
+import requests
+import json
+import os
+import sys
+import argparse
+from pathlib import Path
+from urllib.parse import urlparse
+
+class NFTDownloader:
+    def __init__(self, ipfs_api_url="http://127.0.0.1:5001"):
+        self.ipfs_api_url = ipfs_api_url
+        self.session = requests.Session()
+        
+    def get_token_uri(self, contract_address, token_id):
+        """Get token URI from contract - simplified version"""
+        # This is a basic implementation - the full version has more robust RPC calls
+        print(f"Note: Using basic token URI detection for {contract_address} #{token_id}")
+        print("For full functionality, copy the complete nft_downloader.py")
+        return None
+        
+    def process_nft(self, contract_address, token_id, output_dir="/opt/ipfs-data/nft_data"):
+        """Basic NFT processing"""
+        print(f"Basic NFT processor - processing {contract_address} #{token_id}")
+        print("This is a placeholder. Copy the full nft_downloader.py for complete functionality.")
+        return False
+
+def main():
+    parser = argparse.ArgumentParser(description='Basic NFT downloader (placeholder)')
+    parser.add_argument('contract_address', help='NFT contract address')
+    parser.add_argument('token_id', help='Token ID')
+    parser.add_argument('--output-dir', default='/opt/ipfs-data/nft_data', help='Output directory')
+    
+    args = parser.parse_args()
+    
+    print("⚠️  This is a basic placeholder NFT downloader.")
+    print("To get full functionality:")
+    print("1. Copy the complete nft_downloader.py to /opt/ipfs-tools/")
+    print("2. Run: sudo chmod +x /opt/ipfs-tools/nft_downloader.py")
+    print("3. Run: sudo chown ipfs:ipfs /opt/ipfs-tools/nft_downloader.py")
+
+if __name__ == "__main__":
+    main()
+EOF
+    
+    chmod +x "$SCRIPT_DIR/nft_downloader.py"
+    chown ipfs:ipfs "$SCRIPT_DIR/nft_downloader.py"
+    print_status "Basic NFT downloader created (copy full version for complete functionality)"
+}
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
     print_error "Please run as root (use sudo)"
     exit 1
 fi
+
+# Show where we're running from
+print_status "Setup script location: $(realpath "$0")"
+print_status "Current working directory: $(pwd)"
+print_status "Looking for management scripts..."
 
 # Check available space and confirm we're on SSD
 print_status "Checking storage setup..."
@@ -184,28 +303,28 @@ python3 -m venv "$SCRIPT_DIR/venv"
 print_status "Installing Python dependencies..."
 "$SCRIPT_DIR/venv/bin/pip" install requests psutil
 
-# Copy management scripts
-print_status "Installing management tools..."
+# Copy management scripts using improved function
+print_header "Installing Management Scripts"
 
-# Copy NFT downloader script if available
-if [ -f "nft_downloader.py" ]; then
-    cp "nft_downloader.py" "$SCRIPT_DIR/"
-    chmod +x "$SCRIPT_DIR/nft_downloader.py"
-    print_status "NFT downloader installed"
-else
-    print_warning "nft_downloader.py not found in current directory"
+# Try to copy advanced scripts first
+copy_management_script "nft_downloader.py" "NFT Downloader" false
+if [ ! -f "$SCRIPT_DIR/nft_downloader.py" ]; then
+    create_basic_nft_downloader
 fi
 
-# Copy other scripts if available
-for script in "ipfs_health_monitor.py" "ipfs_backup_restore.sh" "ssd_optimization.sh"; do
-    if [ -f "$script" ]; then
-        cp "$script" "$SCRIPT_DIR/"
-        chmod +x "$SCRIPT_DIR/$script"
-        print_status "$(basename "$script") installed"
-    fi
+copy_management_script "ipfs_health_monitor.py" "Advanced Health Monitor" false
+copy_management_script "ipfs_backup_restore.sh" "Backup & Restore Tools" false
+copy_management_script "ssd_optimization.sh" "SSD Optimization Tools" false
+copy_management_script "ssd_health_monitor.py" "SSD Health Monitor" false
+
+# List what was found and copied
+print_status "Management scripts status:"
+ls -la "$SCRIPT_DIR"/*.py "$SCRIPT_DIR"/*.sh 2>/dev/null | while read -r line; do
+    print_status "  $line"
 done
 
 # Create IPFS status script
+print_status "Creating IPFS status script..."
 cat > "$SCRIPT_DIR/ipfs_status.py" << 'EOF'
 #!/usr/bin/env python3
 import subprocess
@@ -326,9 +445,10 @@ if __name__ == "__main__":
         sys.exit(1)
 EOF
 
-
-# CSV NFT processor
-cat > "$SCRIPT_DIR/process_nft_csv.py" << 'EOF'
+# Create CSV NFT processor and cleanup scripts if NFT downloader exists
+if [ -f "$SCRIPT_DIR/nft_downloader.py" ]; then
+    # CSV processor
+    cat > "$SCRIPT_DIR/process_nft_csv.py" << 'EOF'
 #!/usr/bin/env python3
 import csv
 import sys
@@ -403,8 +523,8 @@ if __name__ == "__main__":
     process_csv_file(csv_file)
 EOF
 
-# NFT cleanup script
-cat > "$SCRIPT_DIR/cleanup_nft.py" << 'EOF'
+    # Cleanup script
+    cat > "$SCRIPT_DIR/cleanup_nft.py" << 'EOF'
 #!/usr/bin/env python3
 import os
 import sys
@@ -519,6 +639,7 @@ if __name__ == "__main__":
     else:
         parser.print_help()
 EOF
+fi
 
 # Make scripts executable
 chmod +x "$SCRIPT_DIR"/*.py
@@ -643,6 +764,7 @@ chmod +x /usr/local/bin/ipfs-tools
 # Set ownership
 chown -R "$IPFS_USER:$IPFS_USER" "$SCRIPT_DIR" "$IPFS_BASE_DIR"
 
+print_header "Installation Summary"
 print_status "Installation completed successfully!"
 print_status ""
 print_status "📁 Data directories:"
@@ -654,6 +776,44 @@ print_status "  Scripts: $SCRIPT_DIR"
 print_status ""
 print_status "🔗 Compatibility:"
 print_status "  /mnt/ssd -> $IPFS_BASE_DIR (symlink for other scripts)"
+print_status ""
+
+# Show what scripts were installed
+print_status "📜 Installed Management Scripts:"
+if [ -f "$SCRIPT_DIR/nft_downloader.py" ]; then
+    if grep -q "Basic NFT processor" "$SCRIPT_DIR/nft_downloader.py"; then
+        print_warning "  NFT Downloader: Basic version (copy full version for complete functionality)"
+    else
+        print_status "  ✅ NFT Downloader: Full version"
+    fi
+else
+    print_warning "  NFT Downloader: Not installed"
+fi
+
+if [ -f "$SCRIPT_DIR/ipfs_health_monitor.py" ]; then
+    print_status "  ✅ Advanced Health Monitor"
+else
+    print_status "  ⚠️  Basic Health Monitor only"
+fi
+
+if [ -f "$SCRIPT_DIR/ipfs_backup_restore.sh" ]; then
+    print_status "  ✅ Backup & Restore Tools"
+else
+    print_warning "  Backup & Restore Tools: Not installed"
+fi
+
+if [ -f "$SCRIPT_DIR/ssd_optimization.sh" ]; then
+    print_status "  ✅ SSD Optimization Tools"
+else
+    print_warning "  SSD Optimization Tools: Not installed"
+fi
+
+if [ -f "$SCRIPT_DIR/ssd_health_monitor.py" ]; then
+    print_status "  ✅ SSD Health Monitor"
+else
+    print_warning "  SSD Health Monitor: Not installed"
+fi
+
 print_status ""
 print_status "🔧 Management commands:"
 print_status "  ipfs-tools status              - Check IPFS status"
@@ -690,13 +850,41 @@ fi
 if systemctl is-active --quiet ipfs; then
     print_status "🎉 Setup complete! Your IPFS node is ready to use."
     print_status ""
-    print_status "💡 Quick Start:"
-    print_status "  ipfs-tools status           - Check everything is working"
-    print_status "  ipfs-tools ssd-health       - Check your SSD health"
+    print_status "💡 Next Steps:"
+    print_status "  1. Test: ipfs-tools status"
+    if [ -f "$SCRIPT_DIR/ssd_health_monitor.py" ]; then
+        print_status "  2. Check SSD: ipfs-tools ssd-health"
+    fi
+    if [ -f "$SCRIPT_DIR/nft_downloader.py" ] && ! grep -q "Basic NFT processor" "$SCRIPT_DIR/nft_downloader.py"; then
+        print_status "  3. Download NFT: ipfs-tools download 0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb 1"
+    fi
     print_status ""
     print_status "🌐 Access your IPFS node:"
     print_status "  Web UI: http://$(hostname -I | awk '{print $1}'):5001/webui/"
     print_status "  Gateway: http://$(hostname -I | awk '{print $1}'):8080/ipfs/"
+    
+    # Show missing scripts and how to add them
+    if [ -f "$SCRIPT_DIR/nft_downloader.py" ] && grep -q "Basic NFT processor" "$SCRIPT_DIR/nft_downloader.py"; then
+        print_status ""
+        print_warning "📝 To get full NFT functionality:"
+        print_status "  sudo cp ~/nft_setup/nft_downloader.py /opt/ipfs-tools/"
+        print_status "  sudo chmod +x /opt/ipfs-tools/nft_downloader.py"
+        print_status "  sudo chown ipfs:ipfs /opt/ipfs-tools/nft_downloader.py"
+    fi
+    
+    missing_scripts=()
+    [ ! -f "$SCRIPT_DIR/ipfs_health_monitor.py" ] && missing_scripts+=("ipfs_health_monitor.py")
+    [ ! -f "$SCRIPT_DIR/ssd_optimization.sh" ] && missing_scripts+=("ssd_optimization.sh")
+    [ ! -f "$SCRIPT_DIR/ipfs_backup_restore.sh" ] && missing_scripts+=("ipfs_backup_restore.sh")
+    
+    if [ ${#missing_scripts[@]} -gt 0 ]; then
+        print_status ""
+        print_warning "📝 To install additional scripts (if available):"
+        for script in "${missing_scripts[@]}"; do
+            print_status "  sudo cp ~/nft_setup/$script /opt/ipfs-tools/ && sudo chmod +x /opt/ipfs-tools/$script"
+        done
+    fi
+    
 else
     print_warning "Setup completed but IPFS service is not running"
     print_status "Check logs with: sudo journalctl -u ipfs -f"
