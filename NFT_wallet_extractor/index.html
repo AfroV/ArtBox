@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NFT Data Fetcher</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Custom font and minor adjustments */
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap");
+      body {
+        font-family: "Inter", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+      <div
+        class="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8"
+      >
+        <!-- Header Section -->
+        <div class="text-center mb-6">
+          <h1 class="text-3xl font-bold text-gray-800">NFT Data Fetcher</h1>
+          <p class="text-gray-500 mt-2">
+            Find all NFTs for an artist on the Ethereum blockchain.
+          </p>
+        </div>
+
+        <!-- Instructions Component -->
+        <div
+          class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mt-4 text-sm"
+        >
+          <h4 class="font-bold mb-2">How to use this tool:</h4>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>You need an OpenSea API Key to fetch NFT data.</li>
+            <li>
+              Visit
+              <a
+                href="https://docs.opensea.io/reference/api-keys"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="underline font-medium hover:text-blue-600"
+                >OpenSea's documentation</a
+              >
+              to get a free key.
+            </li>
+            <li>
+              Paste your key into the "OpenSea API Key" input field below.
+            </li>
+            <li>
+              Click "Fetch NFTs" to begin. The data will appear in the table.
+            </li>
+          </ol>
+        </div>
+
+        <!-- Input Fields -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div>
+            <label
+              for="apiKey"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >OpenSea API Key</label
+            >
+            <input
+              type="password"
+              id="apiKey"
+              placeholder="Enter your OpenSea API key"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <label
+              for="artistAddress"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Artist Wallet Address</label
+            >
+            <input
+              type="text"
+              id="artistAddress"
+              placeholder="Enter Ethereum wallet address"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+          <button
+            id="fetchButton"
+            class="w-full sm:w-auto flex-grow inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+          >
+            <!-- Search Icon SVG -->
+            <svg
+              class="h-5 w-5 mr-2"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span>Fetch NFTs</span>
+          </button>
+          <button
+            id="downloadButton"
+            class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+          >
+            <!-- Download Icon SVG -->
+            <svg
+              class="h-5 w-5 mr-2"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download CSV
+          </button>
+        </div>
+
+        <!-- Status Message Area -->
+        <div id="statusContainer" class="text-center mt-4"></div>
+
+        <!-- NFT Table Area -->
+        <div id="tableContainer" class="mt-8"></div>
+      </div>
+    </div>
+
+    <!-- Error Modal (hidden by default) -->
+    <div
+      id="errorModal"
+      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    >
+      <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+        <div class="flex items-center text-red-500 mb-4">
+          <!-- Alert Triangle Icon SVG -->
+          <svg
+            class="h-6 w-6 mr-3"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            ></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <h3 class="text-lg font-bold text-gray-800">Error</h3>
+        </div>
+        <p id="errorMessage" class="text-gray-600 mb-6"></p>
+        <button
+          id="closeErrorModal"
+          class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors duration-200"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // --- Main Application Logic ---
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // --- Configuration ---
+        const DEFAULT_ARTIST_ADDRESS =
+          "0x39cc9c86e67baf2129b80fe3414c397492ea8026";
+        const OPENSEA_API_BASE_URL = "https://api.opensea.io/api/v2";
+
+        // --- State Variables ---
+        let nfts = [];
+        let isLoading = false;
+
+        // --- DOM Element References ---
+        const apiKeyInput = document.getElementById("apiKey");
+        const artistAddressInput = document.getElementById("artistAddress");
+        const fetchButton = document.getElementById("fetchButton");
+        const downloadButton = document.getElementById("downloadButton");
+        const statusContainer = document.getElementById("statusContainer");
+        const tableContainer = document.getElementById("tableContainer");
+        const errorModal = document.getElementById("errorModal");
+        const errorMessage = document.getElementById("errorMessage");
+        const closeErrorModalButton =
+          document.getElementById("closeErrorModal");
+
+        // --- Initial Setup ---
+        artistAddressInput.value = DEFAULT_ARTIST_ADDRESS;
+        updateButtonStates();
+
+        // --- Event Listeners ---
+        fetchButton.addEventListener("click", fetchAllNfts);
+        downloadButton.addEventListener("click", downloadCSV);
+        closeErrorModalButton.addEventListener("click", hideError);
+        apiKeyInput.addEventListener("input", updateButtonStates);
+
+        // --- Core Functions ---
+
+        function updateButtonStates() {
+          fetchButton.disabled = isLoading || !apiKeyInput.value;
+          downloadButton.disabled = isLoading || nfts.length === 0;
+        }
+
+        function setStatus(message, isError = false) {
+          statusContainer.innerHTML = `<p class="${
+            isError ? "text-red-600" : "text-gray-600"
+          }">${message}</p>`;
+        }
+
+        function showError(message) {
+          errorMessage.textContent = message;
+          errorModal.classList.remove("hidden");
+        }
+
+        function hideError() {
+          errorModal.classList.add("hidden");
+          setStatus("");
+        }
+
+        function renderTable() {
+          if (nfts.length === 0) {
+            tableContainer.innerHTML = "";
+            return;
+          }
+          const tableHTML = `
+                    <h3 class="text-xl font-semibold text-gray-800">Found ${
+                      nfts.length
+                    } NFTs</h3>
+                    <div class="mt-6 w-full max-h-[400px] overflow-y-auto rounded-lg border border-gray-200">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">#</th>
+                                    <th scope="col" class="px-6 py-3">Collection Name</th>
+                                    <th scope="col" class="px-6 py-3">Smart Contract Address</th>
+                                    <th scope="col" class="px-6 py-3">Token ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${nfts
+                                  .map(
+                                    (nft, index) => `
+                                    <tr class="bg-white border-b hover:bg-gray-50">
+                                        <td class="px-6 py-4 font-medium text-gray-900">${
+                                          index + 1
+                                        }</td>
+                                        <td class="px-6 py-4">${
+                                          nft.collection
+                                        }</td>
+                                        <td class="px-6 py-4 font-mono text-xs">${
+                                          nft.contract
+                                        }</td>
+                                        <td class="px-6 py-4 font-mono text-xs">${
+                                          nft.identifier
+                                        }</td>
+                                    </tr>
+                                `
+                                  )
+                                  .join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+          tableContainer.innerHTML = tableHTML;
+        }
+
+        async function fetchAllNfts() {
+          const apiKey = apiKeyInput.value;
+          const artistAddress = artistAddressInput.value;
+
+          if (!apiKey) {
+            showError("Please provide an OpenSea API key.");
+            return;
+          }
+          if (!artistAddress) {
+            showError("Please provide an artist's wallet address.");
+            return;
+          }
+
+          isLoading = true;
+          nfts = [];
+          updateButtonStates();
+          setStatus("Initializing fetch...");
+          tableContainer.innerHTML = "";
+
+          let allNfts = [];
+          let nextCursor = null;
+
+          try {
+            let keepFetching = true;
+            while (keepFetching) {
+              const url = `${OPENSEA_API_BASE_URL}/chain/ethereum/account/${artistAddress}/nfts?limit=50${
+                nextCursor ? `&next=${nextCursor}` : ""
+              }`;
+
+              const response = await fetch(url, {
+                method: "GET",
+                headers: {
+                  "X-API-KEY": apiKey,
+                  accept: "application/json",
+                },
+              });
+
+              if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                  throw new Error(
+                    "Authentication failed. Please check if your OpenSea API key is correct and has the necessary permissions."
+                  );
+                }
+                const errorData = await response.json();
+                throw new Error(
+                  errorData.detail || `HTTP error! Status: ${response.status}`
+                );
+              }
+
+              const data = await response.json();
+
+              if (data.nfts && data.nfts.length > 0) {
+                allNfts = [...allNfts, ...data.nfts];
+                nfts = allNfts;
+                renderTable();
+                setStatus(`Fetched ${allNfts.length} NFTs so far...`);
+              }
+
+              if (data.next) {
+                nextCursor = data.next;
+              } else {
+                keepFetching = false;
+              }
+            }
+
+            setStatus(
+              `Fetch complete. Found ${allNfts.length} total NFTs.`,
+              false
+            );
+            if (allNfts.length === 0) {
+              showError(
+                "No NFTs found for this address. It's possible the wallet holds no NFTs or the API is temporarily unavailable."
+              );
+            }
+          } catch (e) {
+            console.error("Failed to fetch NFTs:", e);
+            showError(
+              e.message ||
+                "An unknown error occurred. Check the console for details."
+            );
+            setStatus("Fetch failed.", true);
+          } finally {
+            isLoading = false;
+            updateButtonStates();
+          }
+        }
+
+        function downloadCSV() {
+          if (nfts.length === 0) {
+            showError("No NFT data to download.");
+            return;
+          }
+
+          const headers = ["SmartContractAddress", "TokenID", "CollectionName"];
+          const csvContent = [
+            headers.join(","),
+            ...nfts.map((nft) =>
+              [nft.contract, `"${nft.identifier}"`, `"${nft.collection}"`].join(
+                ","
+              )
+            ),
+          ].join("\n");
+
+          const blob = new Blob([csvContent], {
+            type: "text/csv;charset=utf-8;",
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", url);
+          const safeAddress = artistAddressInput.value.substring(0, 6);
+          link.setAttribute("download", `nfts_${safeAddress}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      });
+    </script>
+  </body>
+</html>
