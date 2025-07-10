@@ -67,12 +67,12 @@ ipfs-tools status
 ipfs-tools ssd-health
 
 # Test NFT download
-ipfs-tools download 0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb 1
+sudo ipfs-tools download 0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb 1
 
 # Create and test CSV
 echo "contract_address,token_id
 0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb,1" > test.csv
-ipfs-tools csv test.csv
+sudo ipfs-tools csv test.csv
 ```
 
 ---
@@ -161,7 +161,7 @@ ipfs-tools alerts              # Check for problems
 
 ```bash
 ipfs-tools download <contract> <token_id>    # Single NFT
-ipfs-tools csv nfts.csv                      # Batch process
+sudo ipfs-tools csv nfts.csv                      # Batch process
 ipfs-tools cleanup --list                    # List stored NFTs
 ipfs-tools cleanup --cleanup <contract> <id> # Remove NFT
 ```

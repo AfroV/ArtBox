@@ -73,9 +73,10 @@ find_local_nft_files() {
                         echo "  📄 $(basename "$file")"
                         # Extract contract and token from filename
                         basename_file=$(basename "$file")
-                        if [[ "$basename_file" =~ ^(0x[a-fA-F0-9]+)_([0-9]+)_summary\.json$ ]]; then
-                            contract="${BASH_REMATCH[1]}"
-                            token_id="${BASH_REMATCH[2]}"
+                        if [[ "$basename_file" =~ ^0x[a-fA-F0-9]+_[0-9]+_summary\.json$ ]]; then
+                            # Extract contract and token from filename
+                            contract=$(echo "$basename_file" | cut -d'_' -f1)
+                            token_id=$(echo "$basename_file" | cut -d'_' -f2)
                             echo "      Contract: $contract"
                             echo "      Token ID: $token_id"
                         fi
