@@ -460,9 +460,9 @@ from pathlib import Path
 sys.path.insert(0, '/opt/ipfs-tools')
 
 try:
-    from nft_downloader import NFTDownloader
+    from nft_downloader import EnhancedNFTDownloader
 except ImportError:
-    print("❌ nft_downloader.py not found. Please ensure it's in /opt/ipfs-tools/")
+    print("❌ Enhanced nft_downloader.py not found. Please ensure it's in /opt/ipfs-tools/")
     sys.exit(1)
 
 def process_csv_file(csv_file, output_dir="/opt/ipfs-data/nft_data"):
@@ -470,7 +470,7 @@ def process_csv_file(csv_file, output_dir="/opt/ipfs-data/nft_data"):
     print(f"📁 Processing CSV file: {csv_file}")
     print(f"📂 Output directory: {output_dir}")
     
-    downloader = NFTDownloader()
+    downloader = EnhancedNFTDownloader()
     processed = 0
     failed = 0
     
