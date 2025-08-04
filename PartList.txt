@@ -1,4 +1,4 @@
---- PART LIST ---
+--- IPFS ArtBox PART LIST ---
 
 - Raspberry Pi 4 Model B 8 GB memory. ( PI 4 because of lower heat then 5, and 5 had reports of powering cycle issues)
 

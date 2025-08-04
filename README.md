@@ -18,46 +18,38 @@ Enable SSH
 Us with password or public key
 
 ```bash
-# Copy all 8 files to your Pi
-scp *.py *.sh pi@your-pi-ip:/home/pi/ipfs-setup/
+# Copy all files to your Pi
+scp -r nft_setup pi@your-pi-ip:~/
 
 # Or use USB drive, etc.
 ```
 
-### **Step 2: Prepare Installation**
+### **Step 2: Installation**
 
 ````bash
+# SSH into your Pi
+ssh pi@your-pi-ip
+
 cd nft_setup
+
 chmod +x *.sh *.py
 
-# # Ensure SSD is mounted
-# sudo mkdir -p /mnt/ssd
-# sudo mount /dev/sdX1 /mnt/ssd  # Replace sdX1 with your SSD device
-
-# # Make permanent
-# echo "/dev/sdX1 /mnt/ssd ext4 defaults 0 0" | sudo tee -a /etc/fstab
-# ```
-
-### **Step 3: Run Installation**
 
 ```bash
 # Main installation (installs everything)
 sudo ./ipfs_setup.sh
-
-
-# The rest in step 3 is OPTIONAL, It will run automatically at the end of ipfs_setup.sh!!
-
-# Verify installation and fix issues
-sudo ./setup_verification.sh
-
-# Optimize SSD for IPFS
-sudo ./ipfs_quick_start.sh optimize-ssd
-
-# Final comprehensive validation
-sudo ./final_validation.sh
 ````
 
-### **Step 4: Test Everything**
+# The script will automatically:
+
+- Install IPFS and all dependencies
+- Create the IPFS service
+- Set up the directory structure
+- Copy any available management scripts
+- Run an initial status check
+- Start the IPFS service
+
+### **Step 3: Test Everything**
 
 ```bash
 # Check status
@@ -135,7 +127,6 @@ sudo ipfs-tools csv test.csv
 ├── venv/              # Python environment
 ├── nft_downloader.py
 ├── ipfs_health_monitor.py
-├── ssd_health_monitor.py
 ├── ssd_optimization.sh
 ├── ipfs_backup_restore.sh
 └── other management tools
@@ -152,7 +143,6 @@ sudo ipfs-tools csv test.csv
 
 ```bash
 ipfs-tools status              # Check everything
-ipfs-tools ssd-health          # Check SSD health
 ipfs-tools monitor 60          # Continuous monitoring
 ipfs-tools alerts              # Check for problems
 ```
@@ -215,8 +205,6 @@ ipfs-tools download <contract> <token> --rpc-url https://mainnet.infura.io/v3/YO
 # Re-run optimization
 sudo ./ssd_optimization.sh
 
-# Check health
-ipfs-tools ssd-health
 
 # Run performance test
 sudo /opt/ipfs-tools/ssd_performance_test.sh
@@ -231,43 +219,42 @@ When everything is working correctly, you should see:
 ✅ **IPFS Service**: `systemctl status ipfs` shows "active (running)"  
 ✅ **Web UI**: Accessible at `http://your-pi-ip:5001/webui/`  
 ✅ **API**: `curl http://127.0.0.1:5001/api/v0/version` returns JSON  
-✅ **SSD Health**: `ipfs-tools ssd-health` shows optimizations  
+✅ **SSD Health**: `ipfs-tools` shows optimizations  
 ✅ **NFT Downloads**: Successfully downloads and pins NFTs  
 ✅ **Peers**: Connected to IPFS network with multiple peers
 
-# If links does not work, you might need to SSH tunel
+## If links does not work, you might need to SSH tunel
 
-# SSH Tunnel (Recommended):
+##SSH Tunnel (Recommended):
 
-# Option 1: Local Port Forwarding
+Option 1: Local Port Forwarding
 
-# Forward your local port 5001 to Pi's port 5001
+Forward your local port 5001 to Pi's port 5001
 
+```bash
 ssh -L 5001:localhost:5001 pi@your-pi-ip
+```
 
-# Keep the SSH connection open, then access:
+Keep the SSH connection open, then access:
+http://localhost:5001/webui/
 
-# http://localhost:5001/webui/
+Option 2: Use Different Local Port (if 5001 is busy)
+Forward local port 15001 to Pi's port 5001
 
-# Option 2: Use Different Local Port (if 5001 is busy)
-
-# Forward local port 15001 to Pi's port 5001
-
+```bash
 ssh -L 15001:localhost:5001 pi@your-pi-ip
+```
 
-# Then access: http://localhost:15001/webui/
+Then access: http://localhost:15001/webui/
 
 ---
 
 ## 🏆 **Final Result**
 
-You'll have a **production-ready IPFS node** with:
+You'll have a **IPFS node** with:
 
 - 🔥 **High Performance**: SSD-optimized for IPFS workloads
 - 🛡️ **Reliable**: Auto-restart, health monitoring, backups
 - 🎨 **NFT Ready**: Download, pin, and manage NFT collections
-- 📊 **Monitored**: Real-time health and performance tracking
 - 🔧 **Maintainable**: Easy management tools and commands
 - 💾 **Protected**: Comprehensive backup and restore system
-
-**All code is complete, tested, and bug-free!** 🎉
