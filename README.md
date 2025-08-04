@@ -235,6 +235,28 @@ When everything is working correctly, you should see:
 ✅ **NFT Downloads**: Successfully downloads and pins NFTs  
 ✅ **Peers**: Connected to IPFS network with multiple peers
 
+# If links does not work, you might need to SSH tunel
+
+# SSH Tunnel (Recommended):
+
+# Option 1: Local Port Forwarding
+
+# Forward your local port 5001 to Pi's port 5001
+
+ssh -L 5001:localhost:5001 pi@your-pi-ip
+
+# Keep the SSH connection open, then access:
+
+# http://localhost:5001/webui/
+
+# Option 2: Use Different Local Port (if 5001 is busy)
+
+# Forward local port 15001 to Pi's port 5001
+
+ssh -L 15001:localhost:5001 pi@your-pi-ip
+
+# Then access: http://localhost:15001/webui/
+
 ---
 
 ## 🏆 **Final Result**

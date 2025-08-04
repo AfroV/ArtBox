@@ -450,10 +450,16 @@ if [ -f "$SCRIPT_DIR/nft_downloader.py" ]; then
     # CSV processor
     cat > "$SCRIPT_DIR/process_nft_csv.py" << 'EOF'
 #!/usr/bin/env python3
+"""
+Enhanced CSV NFT Processor with Progress Bar and Status Tracking
+Processes NFTs from CSV file with visual progress indication
+"""
+
 import csv
 import sys
 import os
 import json
+import time
 from pathlib import Path
 
 # Add the script directory to path to import nft_downloader
@@ -465,62 +471,296 @@ except ImportError:
     print("❌ Enhanced nft_downloader.py not found. Please ensure it's in /opt/ipfs-tools/")
     sys.exit(1)
 
+class ProgressBar:
+    """Simple progress bar for console output"""
+    
+    def __init__(self, total, width=50):
+        self.total = total
+        self.width = width
+        self.current = 0
+        self.start_time = time.time()
+        
+    def update(self, current, status="Processing"):
+        self.current = current
+        
+        # Calculate progress
+        percent = (current / self.total) * 100 if self.total > 0 else 0
+        filled = int(self.width * current // self.total) if self.total > 0 else 0
+        bar = '█' * filled + '░' * (self.width - filled)
+        
+        # Calculate time estimates
+        elapsed = time.time() - self.start_time
+        if current > 0:
+            rate = current / elapsed
+            eta = (self.total - current) / rate if rate > 0 else 0
+            eta_str = f"{int(eta//60):02d}:{int(eta%60):02d}"
+        else:
+            eta_str = "--:--"
+        
+        # Format the progress line
+        progress_line = f"\r📊 [{bar}] {current}/{self.total} ({percent:.1f}%) | ETA: {eta_str} | {status}"
+        
+        # Print with proper padding to clear previous line
+        print(progress_line.ljust(120), end='', flush=True)
+        
+        if current >= self.total:
+            print()  # New line when complete
+
+def count_csv_rows(csv_file):
+    """Count the number of data rows in CSV file (excluding header)"""
+    try:
+        with open(csv_file, 'r') as f:
+            reader = csv.DictReader(f)
+            return sum(1 for row in reader)
+    except Exception as e:
+        print(f"❌ Error counting CSV rows: {e}")
+        return 0
+
+def validate_csv_format(csv_file):
+    """Validate CSV file format and return column info"""
+    try:
+        with open(csv_file, 'r') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            
+            # Check for required columns
+            required_cols = ['contract_address', 'token_id']
+            missing_cols = [col for col in required_cols if col not in fieldnames]
+            
+            if missing_cols:
+                print(f"❌ Missing required columns: {missing_cols}")
+                print(f"📋 Available columns: {fieldnames}")
+                return False, fieldnames
+            
+            return True, fieldnames
+    except Exception as e:
+        print(f"❌ Error validating CSV: {e}")
+        return False, []
+
+def format_time(seconds):
+    """Format seconds into readable time string"""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        return f"{int(seconds//60)}m {int(seconds%60)}s"
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f"{hours}h {minutes}m"
+
 def process_csv_file(csv_file, output_dir="/opt/ipfs-data/nft_data"):
-    """Process NFTs from CSV file"""
-    print(f"📁 Processing CSV file: {csv_file}")
+    """Process NFTs from CSV file with progress tracking"""
+    
+    print(f"🚀 Enhanced CSV NFT Processor Starting")
+    print("=" * 60)
+    print(f"📁 Input file: {csv_file}")
     print(f"📂 Output directory: {output_dir}")
     
+    # Validate CSV format
+    print("🔍 Validating CSV format...")
+    is_valid, fieldnames = validate_csv_format(csv_file)
+    if not is_valid:
+        return False
+    
+    print(f"✅ CSV validation passed")
+    print(f"📋 Columns found: {', '.join(fieldnames)}")
+    
+    # Count total rows
+    print("📊 Counting NFTs to process...")
+    total_rows = count_csv_rows(csv_file)
+    if total_rows == 0:
+        print("❌ No NFTs found in CSV file")
+        return False
+    
+    print(f"📈 Total NFTs to process: {total_rows}")
+    print()
+    
+    # Initialize downloader and progress tracking
     downloader = EnhancedNFTDownloader()
     processed = 0
     failed = 0
+    skipped = 0
+    start_time = time.time()
     
     # Create output directory
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
-    # Read CSV file
+    # Initialize progress bar
+    progress = ProgressBar(total_rows)
+    
+    # Process CSV file
+    current_row = 0
+    failed_nfts = []
+    
     with open(csv_file, 'r') as f:
         reader = csv.DictReader(f)
         
-        # Expected columns: contract_address, token_id
         for row in reader:
+            current_row += 1
+            
             contract_address = row.get('contract_address', '').strip()
             token_id = row.get('token_id', '').strip()
             
+            # Update progress bar with current NFT info
+            status = f"Processing {contract_address[:8]}...#{token_id}"
+            progress.update(current_row, status)
+            
+            # Validate row data
             if not contract_address or not token_id:
-                print(f"⚠️  Skipping row with missing data: {row}")
+                skipped += 1
+                failed_nfts.append({
+                    'contract_address': contract_address,
+                    'token_id': token_id,
+                    'error': 'Missing contract address or token ID'
+                })
                 continue
             
-            print(f"\n🎨 Processing NFT: {contract_address} #{token_id}")
+            # Validate contract address format
+            if not contract_address.startswith('0x') or len(contract_address) != 42:
+                skipped += 1
+                failed_nfts.append({
+                    'contract_address': contract_address,
+                    'token_id': token_id,
+                    'error': 'Invalid contract address format'
+                })
+                continue
             
             try:
+                # Update progress with current processing status
+                status = f"Downloading {contract_address[:8]}...#{token_id}"
+                progress.update(current_row, status)
+                
+                # Process the NFT
                 success = downloader.process_nft(contract_address, token_id, output_dir)
+                
                 if success:
                     processed += 1
-                    print(f"✅ Success: {contract_address} #{token_id}")
+                    status = f"✅ Completed {contract_address[:8]}...#{token_id}"
                 else:
                     failed += 1
-                    print(f"❌ Failed: {contract_address} #{token_id}")
+                    failed_nfts.append({
+                        'contract_address': contract_address,
+                        'token_id': token_id,
+                        'error': 'Processing failed'
+                    })
+                    status = f"❌ Failed {contract_address[:8]}...#{token_id}"
+                
+                # Brief pause to show status
+                progress.update(current_row, status)
+                time.sleep(0.1)
+                
+            except KeyboardInterrupt:
+                print(f"\n\n⚠️ Process interrupted by user at NFT {current_row}/{total_rows}")
+                break
             except Exception as e:
                 failed += 1
-                print(f"❌ Error processing {contract_address} #{token_id}: {e}")
+                failed_nfts.append({
+                    'contract_address': contract_address,
+                    'token_id': token_id,
+                    'error': str(e)
+                })
+                status = f"❌ Error {contract_address[:8]}...#{token_id}"
+                progress.update(current_row, status)
+                time.sleep(0.1)
     
-    print(f"\n📊 Summary:")
-    print(f"  ✅ Processed: {processed}")
-    print(f"  ❌ Failed: {failed}")
+    # Final progress update
+    progress.update(current_row, "Complete!")
+    
+    # Calculate final statistics
+    total_time = time.time() - start_time
+    
+    print("\n")
+    print("🎉 CSV Processing Complete!")
+    print("=" * 60)
+    print(f"📊 Final Statistics:")
+    print(f"  • Total NFTs in CSV: {total_rows}")
+    print(f"  • Successfully processed: {processed}")
+    print(f"  • Failed: {failed}")
+    print(f"  • Skipped (invalid data): {skipped}")
+    print(f"  • Processing time: {format_time(total_time)}")
+    
+    if processed > 0:
+        avg_time = total_time / processed
+        print(f"  • Average time per NFT: {format_time(avg_time)}")
+    
+    success_rate = (processed / total_rows) * 100 if total_rows > 0 else 0
+    print(f"  • Success rate: {success_rate:.1f}%")
     print(f"  📁 Files saved to: {output_dir}")
+    
+    # Show failed NFTs if any
+    if failed_nfts:
+        print(f"\n⚠️ Failed NFTs ({len(failed_nfts)}):")
+        print("-" * 60)
+        for i, nft in enumerate(failed_nfts[:10]):  # Show first 10 failures
+            print(f"  {i+1}. {nft['contract_address']} #{nft['token_id']}: {nft['error']}")
+        
+        if len(failed_nfts) > 10:
+            print(f"  ... and {len(failed_nfts) - 10} more")
+        
+        # Save failed NFTs to file for retry
+        failed_log = os.path.join(output_dir, 'failed_nfts.json')
+        try:
+            with open(failed_log, 'w') as f:
+                json.dump(failed_nfts, f, indent=2)
+            print(f"\n📝 Failed NFTs saved to: {failed_log}")
+            print("   You can review and retry these later.")
+        except Exception as e:
+            print(f"❌ Could not save failed NFTs log: {e}")
+    
+    print(f"\n💡 Quick commands:")
+    print(f"  • Check storage: df -h /opt/ipfs-data")
+    print(f"  • View files: ls -la {output_dir}")
+    print(f"  • IPFS status: ipfs-tools status")
+    
+    return processed > 0
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
+        print("Enhanced CSV NFT Processor")
+        print("=" * 40)
         print("Usage: python3 process_nft_csv.py <csv_file>")
-        print("\nCSV format should have columns: contract_address, token_id")
+        print("")
+        print("CSV format requirements:")
+        print("  • Must have 'contract_address' column (0x... format)")
+        print("  • Must have 'token_id' column (numeric)")
+        print("  • First row should be headers")
+        print("")
+        print("Example CSV:")
+        print("  contract_address,token_id,name")
+        print("  0x1234...,1,My NFT")
+        print("  0x5678...,42,Another NFT")
         sys.exit(1)
     
     csv_file = sys.argv[1]
+    
+    # Check if CSV file exists
     if not os.path.exists(csv_file):
         print(f"❌ CSV file not found: {csv_file}")
+        print(f"📍 Current directory: {os.getcwd()}")
+        print(f"📋 Available files: {', '.join(os.listdir('.'))}")
         sys.exit(1)
     
-    process_csv_file(csv_file)
+    # Check file size
+    file_size = os.path.getsize(csv_file)
+    print(f"📄 CSV file size: {file_size:,} bytes")
+    
+    if file_size == 0:
+        print("❌ CSV file is empty")
+        sys.exit(1)
+    
+    # Process the file
+    try:
+        success = process_csv_file(csv_file)
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Processing interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
 EOF
 
     # Cleanup script

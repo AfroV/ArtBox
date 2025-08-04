@@ -69,6 +69,9 @@ update_file() {
         return 1
     fi
     
+    # Create target directory if it doesn't exist
+    mkdir -p "$target_dir"
+    
     # Backup existing file if it exists
     if [ -f "$target_file" ]; then
         print_status "  Backing up existing file to: $backup_file"
@@ -82,7 +85,7 @@ update_file() {
     # Set permissions
     chmod +x "$target_file"
     
-    # Set ownership based on target directory
+    # Set ownership based on target directory and file type
     if [ "$target_dir" = "$SCRIPT_DIR" ]; then
         chown ipfs:ipfs "$target_file"
     else
@@ -186,6 +189,89 @@ test_setup_script() {
         print_warning "  ⚠️  Enhanced installer function not found"
     fi
     
+    # Check for progress bar CSV processor
+    if grep -q "Enhanced CSV NFT Processor with Progress Bar" "$filepath"; then
+        print_status "  ✅ Enhanced CSV processor found"
+    else
+        print_warning "  ⚠️  Enhanced CSV processor not found"
+    fi
+    
+    # Check file size (enhanced version should be larger)
+    if [ -f "$filepath" ]; then
+        file_size=$(wc -c < "$filepath")
+        if [ "$file_size" -gt 50000 ]; then
+            print_status "  ✅ File size looks good ($file_size bytes)"
+        else
+            print_warning "  ⚠️  File size seems small ($file_size bytes) - may be incomplete"
+        fi
+    fi
+    
+    return 0
+}
+
+# Special function for ipfs_setup.sh
+update_setup_script() {
+    local source_file="$SOURCE_DIR/ipfs_setup.sh"
+    local target_file="$INSTALL_DIR/ipfs_setup.sh"
+    local backup_file="$BACKUP_DIR/ipfs_setup.sh_backup_${TIMESTAMP}"
+    
+    print_status "Updating IPFS Setup Script (Special Handler)"
+    
+    # Check if source file exists
+    if [ ! -f "$source_file" ]; then
+        print_error "Source ipfs_setup.sh not found: $source_file"
+        return 1
+    fi
+    
+    # Create install directory
+    mkdir -p "$INSTALL_DIR"
+    
+    # Backup existing file
+    if [ -f "$target_file" ]; then
+        print_status "  Creating backup: $backup_file"
+        cp "$target_file" "$backup_file"
+    fi
+    
+    # Check source file integrity
+    source_size=$(wc -c < "$source_file")
+    print_status "  Source file size: $source_size bytes"
+    
+    if [ "$source_size" -lt 30000 ]; then
+        print_warning "  ⚠️  Source file seems small - may be incomplete"
+        read -p "Continue anyway? (y/N): " continue_choice
+        if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
+            return 1
+        fi
+    fi
+    
+    # Copy the file
+    print_status "  Copying enhanced setup script..."
+    if cp "$source_file" "$target_file"; then
+        print_status "  ✅ File copied successfully"
+    else
+        print_error "  ❌ Failed to copy file"
+        return 1
+    fi
+    
+    # Set permissions
+    chmod +x "$target_file"
+    chown root:root "$target_file"
+    
+    # Verify the copy
+    target_size=$(wc -c < "$target_file")
+    print_status "  Target file size: $target_size bytes"
+    
+    if [ "$source_size" -eq "$target_size" ]; then
+        print_status "  ✅ File sizes match - copy successful"
+    else
+        print_error "  ❌ File sizes don't match - copy may have failed"
+        return 1
+    fi
+    
+    # Test the updated script
+    test_setup_script
+    
+    print_status "  ✅ IPFS Setup Script updated successfully"
     return 0
 }
 
@@ -298,8 +384,14 @@ if [ "$#" -eq 0 ]; then
             for file in "${!UPDATE_FILES[@]}"; do
                 IFS='|' read -r description target_dir <<< "${UPDATE_FILES[$file]}"
                 if [ -f "$SOURCE_DIR/$file" ]; then
-                    update_file "$file" "$description" "$target_dir"
-                    updated_files+=("$file")
+                    # Special handling for ipfs_setup.sh
+                    if [ "$file" = "ipfs_setup.sh" ]; then
+                        update_setup_script
+                        updated_files+=("$file")
+                    else
+                        update_file "$file" "$description" "$target_dir"
+                        updated_files+=("$file")
+                    fi
                     
                     # Track what types of files were updated
                     if [ "$target_dir" = "$SCRIPT_DIR" ]; then
@@ -308,11 +400,13 @@ if [ "$#" -eq 0 ]; then
                         setup_files_updated=true
                     fi
                     
-                    # Validate files
-                    if [[ "$file" == *.py ]]; then
-                        validate_python_file "$file" "$target_dir"
-                    elif [[ "$file" == *.sh ]]; then
-                        validate_shell_script "$file" "$target_dir"
+                    # Validate files (skip ipfs_setup.sh as it's already tested)
+                    if [ "$file" != "ipfs_setup.sh" ]; then
+                        if [[ "$file" == *.py ]]; then
+                            validate_python_file "$file" "$target_dir"
+                        elif [[ "$file" == *.sh ]]; then
+                            validate_shell_script "$file" "$target_dir"
+                        fi
                     fi
                 fi
             done
@@ -402,14 +496,21 @@ else
         if [ -f "$SOURCE_DIR/$file" ]; then
             if [[ -n "${UPDATE_FILES[$file]}" ]]; then
                 IFS='|' read -r description target_dir <<< "${UPDATE_FILES[$file]}"
-                update_file "$file" "$description" "$target_dir"
-                updated_files+=("$file")
                 
-                # Validate files
-                if [[ "$file" == *.py ]]; then
-                    validate_python_file "$file" "$target_dir"
-                elif [[ "$file" == *.sh ]]; then
-                    validate_shell_script "$file" "$target_dir"
+                # Special handling for ipfs_setup.sh
+                if [ "$file" = "ipfs_setup.sh" ]; then
+                    update_setup_script
+                    updated_files+=("$file")
+                else
+                    update_file "$file" "$description" "$target_dir"
+                    updated_files+=("$file")
+                    
+                    # Validate files (skip ipfs_setup.sh as it's already tested)
+                    if [[ "$file" == *.py ]]; then
+                        validate_python_file "$file" "$target_dir"
+                    elif [[ "$file" == *.sh ]]; then
+                        validate_shell_script "$file" "$target_dir"
+                    fi
                 fi
             else
                 print_warning "Unknown file: $file (trying to update to $SCRIPT_DIR)"
