@@ -1,4 +1,12 @@
-Light plates
+--- PART LIST ---
+
+- Raspberry Pi 4 Model B 8 GB memory. ( PI 4 because of lower heat then 5, and 5 had reports of powering cycle issues)
+
+- Kingston XS1000 SSD 1TB. (Should be more then enugh memory for moust collectors. )
+
+- 20 W USB-C power cable for the PI
+
+-Light plates
 USA
 https://us.store.bambulab.com/products/lithophane-led-backlight-board-kit?id=42816246939784&skr=yes
 
