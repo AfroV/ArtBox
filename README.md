@@ -1,6 +1,6 @@
 ## 🚀 **Installation Process**
 
-### **Step 1: Copy Files to Pi**
+### **Step 1: Install PI OS**
 
 # https://www.raspberrypi.com/software/
 
@@ -18,7 +18,7 @@ Enable SSH
 Us with password or public key
 
 ```bash
-# Copy all files to your Pi
+# Copy all files to your Pi. E.G punk@1.4.2.0
 scp -r nft_setup pi@your-pi-ip:~/
 
 # Or use USB drive, etc.
@@ -258,3 +258,14 @@ You'll have a **IPFS node** with:
 - 🎨 **NFT Ready**: Download, pin, and manage NFT collections
 - 🔧 **Maintainable**: Easy management tools and commands
 - 💾 **Protected**: Comprehensive backup and restore system
+
+## ⚠️ Important Safety Notice
+
+This is an experimental DIY project shared for educational purposes. By building this device:
+
+- You assume all risks of assembly and operation
+- You are responsible for electrical safety and local regulations
+- No warranty or support is provided
+- Creator is not liable for any damage, injury, or loss
+
+**Build at your own risk. If you're not comfortable with electronics, please consult someone who is.**
