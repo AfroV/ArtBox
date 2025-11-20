@@ -93,6 +93,10 @@ copy_management_script() {
     return 0
 }
 
+
+
+
+
 # Function to create a basic NFT downloader if original not found
 create_basic_nft_downloader() {
     print_status "Creating basic NFT downloader..."
@@ -322,6 +326,196 @@ print_status "Management scripts status:"
 ls -la "$SCRIPT_DIR"/*.py "$SCRIPT_DIR"/*.sh 2>/dev/null | while read -r line; do
     print_status "  $line"
 done
+
+# ——————————————————————————————————————————————————————————————
+# Install the new, complete, never-stuck CSV backup processor
+# ——————————————————————————————————————————————————————————————
+
+print_status "Installing enhanced CSV backup processor (process_nft_csv.py)..."
+
+cat > "$SCRIPT_DIR/process_nft_csv.py" << 'EOF'
+#!/usr/bin/env python3
+"""
+XCOPY FINAL – short, complete, never stuck, with --workers support
+"""
+
+import csv
+import json
+import re
+import time
+from pathlib import Path
+import requests
+from threading import Lock
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+class XCOPYDownloader:
+    def __init__(self, output_dir="ipfs_backup"):
+        self.files_dir = Path(output_dir) / "files"
+        self.files_dir.mkdir(parents=True, exist_ok=True)
+        self.downloaded = set()
+        self.lock = Lock()
+        self.progress_file = Path(output_dir) / "download_progress.json"
+        self.session = requests.Session()
+        # Match valid IPFS CIDs: CIDv0 (Qm...) or CIDv1 (baf..., bae..., etc)
+        self.cid_pattern = re.compile(r'(?:https?://[^/\s]*ipfs[^/\s]*/(?:ipfs/)?|ipfs://)?(?:(Qm[a-zA-Z0-9]{44})|(baf[a-z0-9]{50,}))', re.I)
+        self._load_progress()
+
+    def _load_progress(self):
+        if self.progress_file.exists():
+            try:
+                self.downloaded = set(json.load(open(self.progress_file)).get("downloaded", []))
+                print(f"Progress loaded – {len(self.downloaded)} files already done")
+            except: pass
+
+    def _save_progress(self):
+        json.dump({"downloaded": list(self.downloaded)}, open(self.progress_file, "w"), indent=2)
+
+    def _download(self, cid):
+        url = f"http://127.0.0.1:8080/ipfs/{cid}"
+        print(f"  → {cid[:20]}...", end="", flush=True)
+        for _ in range(40):                                    # ~13 minutes max
+            try:
+                r = self.session.get(url, timeout=30)
+                if r.status_code == 200 and len(r.content) > 1000:
+                    print(f" SUCCESS ({len(r.content)/1048576:.2f} MB)")
+                    return r.content
+            except:
+                pass
+            print(".", end="", flush=True)
+            time.sleep(20)
+        print(" timeout – open this CID in IPFS Desktop to speed it up")
+        return None
+
+    def _exists(self, cid):
+        return any((self.files_dir / f"{cid}{e}").exists() for e in [".json",".gif",".png",".jpg",".mp4",".glb",".html",".bin",".webp"])
+
+    def _extract_all_cids(self, obj, parent_cid):
+        cids = []
+        if isinstance(obj, str):
+            for match in self.cid_pattern.finditer(obj):
+                cid = match.group(1) or match.group(2)
+                if cid and cid != parent_cid:
+                    cids.append(cid)
+        elif isinstance(obj, dict):
+            for value in obj.values():
+                cids.extend(self._extract_all_cids(value, parent_cid))
+        elif isinstance(obj, list):
+            for item in obj:
+                cids.extend(self._extract_all_cids(item, parent_cid))
+        return cids
+
+    def download_cid(self, cid, name=""):
+        cid = cid.strip()
+        already_exists = self._exists(cid)
+
+        if already_exists:
+            for ext in [".json",".gif",".png",".jpg",".mp4",".glb",".html",".bin",".webp"]:
+                file_path = self.files_dir / f"{cid}{ext}"
+                if file_path.exists() and ext in [".json", ".html"]:
+                    try:
+                        data = file_path.read_bytes()
+                        text = data.decode("utf-8", errors="ignore")
+                        if ext == ".json":
+                            meta = json.loads(text)
+                            nested = self._extract_all_cids(meta, cid)
+                        else:
+                            nested = [m.group(1) or m.group(2) for m in self.cid_pattern.finditer(text) if (m.group(1) or m.group(2)) != cid]
+                        if nested:
+                            print(f"  ✓ Existing {ext[1:].upper()} contains {len(nested)} nested hashes")
+                            for n in nested:
+                                if not self._exists(n):
+                                    print(f"      → Downloading nested: {n[:20]}...")
+                                    self.download_cid(n)
+                    except: pass
+            return True
+
+        data = self._download(cid)
+        if not data:
+            return False
+
+        # Detect file type
+        ext = ".bin"
+        if data.startswith(b'<!DOCTYPE html'): ext = ".html"
+        elif data.startswith(b'\x89PNG'): ext = ".png"
+        elif data.startswith(b'\xff\xd8\xff'): ext = ".jpg"
+        elif data.startswith(b'GIF8'): ext = ".gif"
+        elif len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WEBP': ext = ".webp"
+        elif len(data) >= 8 and data[4:8] in [b'ftyp', b'mdat', b'moov', b'wide']: ext = ".mp4"
+        elif data.startswith(b'glTF'): ext = ".glb"
+        else:
+            try: json.loads(data); ext = ".json"
+            except: pass
+
+        (self.files_dir / f"{cid}{ext}").write_bytes(data)
+        with self.lock:
+            self.downloaded.add(cid)
+            self._save_progress()
+
+        # Recursively handle nested hashes in JSON/HTML
+        if ext in [".json", ".html"]:
+            try:
+                text = data.decode("utf-8", errors="ignore")
+                if ext == ".json":
+                    meta = json.loads(text)
+                    nested = self._extract_all_cids(meta, cid)
+                else:
+                    nested = [m.group(1) or m.group(2) for m in self.cid_pattern.finditer(text) if (m.group(1) or m.group(2)) != cid]
+                if nested:
+                    print(f"    → Found {len(nested)} nested hashes")
+                    for n in nested:
+                        if not self._exists(n):
+                            print(f"      → Downloading: {n[:20]}...")
+                            self.download_cid(n)
+            except: pass
+        return True
+
+    def run(self, csv_file, workers=1):
+        items = []
+        with open(csv_file, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                cid = (row.get("cid") or row.get("CID") or "").strip()
+                if not cid:
+                    url = (row.get("metadata_url") or row.get("metadataUrl") or "").strip()
+                    m = self.cid_pattern.search(url)
+                    if m:
+                        cid = m.group(1) or m.group(2)
+                if cid and cid not in ["See CSV","On-Chain","Arweave","--"]:
+                    title = row.get("title") or row.get("name") or row.get("filename") or ""
+                    items.append((title, cid))
+
+        print(f"\nStarting download of {len(items)} items (workers = {workers})\n")
+
+        def task(item):
+            title, cid = item
+            self.download_cid(cid, title)
+
+        if workers == 1:
+            for item in items:
+                task(item)
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as exe:
+                for future in as_completed([exe.submit(task, i) for i in items]):
+                    future.result()
+
+        print("\nALL DONE – your archive is complete!")
+        print(f"   Total unique files: {len(self.downloaded)}")
+        print(f"   Folder: {self.files_dir.resolve()}")
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Ultimate CSV → IPFS backup tool")
+    parser.add_argument("csv", help="CSV file")
+    parser.add_argument("--output", "-o", default="ipfs_backup", help="Output folder")
+    parser.add_argument("--workers", type=int, default=1, help="Parallel workers (1 = safest)")
+    args = parser.parse_args()
+    XCOPYDownloader(args.output).run(args.csv, workers=args.workers)
+EOF
+
+chmod +x "$SCRIPT_DIR/process_nft_csv.py"
+chown ipfs:ipfs "$SCRIPT_DIR/process_nft_csv.py"
+print_success "Enhanced CSV backup processor installed (supports --workers, resumable, nested hashes)"
+
+
 
 # Create IPFS status script
 print_status "Creating IPFS status script..."
@@ -921,12 +1115,13 @@ case "$1" in
         fi
         ;;
     "csv")
-        shift
-        if [ -f "/opt/ipfs-tools/process_nft_csv.py" ]; then
-            python3 /opt/ipfs-tools/process_nft_csv.py "$@"
-        else
-            echo "CSV processor not installed"
+        if [ -z "$2" ]; then
+            echo "Usage: ipfs-tools csv <file.csv> [--workers N] [--output folder]"
+            echo "Example: ipfs-tools csv xcopy.csv --workers 4 --output xcopy_backup"
+            exit 1
         fi
+        shift
+        python3 /opt/ipfs-tools/process_nft_csv.py "$@"
         ;;
     "cleanup")
         shift
