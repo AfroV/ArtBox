@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async Art NFT Data Fetcher</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font and minor adjustments */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-7xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
+            
+            <!-- Header Section -->
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Async Art NFT Data Fetcher</h1>
+                <p class="text-gray-500 mt-2">Fetch all NFTs from Async Art contracts with IPFS links and metadata.</p>
+            </div>
+
+            <!-- Contract Info -->
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mt-4 text-sm">
+                <h4 class="font-bold mb-2">Official Async Art Contract Addresses:</h4>
+                <ul class="list-disc list-inside space-y-1">
+                    <li><strong>V1 Contract:</strong> 0x6c424c25e9f1fff9642cb5b7750b0db7312c29ad</li>
+                    <li><strong>V2 Contract:</strong> 0xb6dae651468e9593e4581705a09c10a76ac1e0c8</li>
+                    <li><strong>Blueprints Contract:</strong> 0xc143bbfcDBdBEd6d454803804752a064A622C1F3</li>
+                    <li><strong>Custom Contracts:</strong> Add your own artist-specific Async Art contract address</li>
+                </ul>
+                <div class="mt-3">
+                    <h5 class="font-bold">Instructions:</h5>
+                    <ol class="list-decimal list-inside space-y-1">
+                        <li>Enter your OpenSea API key</li>
+                        <li>Select which contract(s) to fetch</li>
+                        <li>For custom contracts, enter the contract address when selecting "Custom Contract"</li>
+                        <li>Click "Fetch NFTs" to retrieve all tokens</li>
+                        <li>Download separate CSV files for each contract</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Input Fields -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <div>
+                    <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">OpenSea API Key</label>
+                    <input
+                        type="password"
+                        id="apiKey"
+                        placeholder="Enter your OpenSea API key"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                </div>
+                <div>
+                    <label for="contractSelector" class="block text-sm font-medium text-gray-700 mb-1">Contract Selection</label>
+                    <select id="contractSelector" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                        <option value="all" selected>All Official Contracts</option>
+                        <option value="v1">V1 Only</option>
+                        <option value="v2">V2 Only</option>
+                        <option value="blueprints">Blueprints Only</option>
+                        <option value="custom">Custom Contract</option>
+                        <option value="v1v2">V1 and V2 Only</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Custom Contract Input (initially hidden) -->
+            <div id="customContractContainer" class="hidden mt-4">
+                <label for="customContract" class="block text-sm font-medium text-gray-700 mb-1">Custom Contract Address</label>
+                <input
+                    type="text"
+                    id="customContract"
+                    placeholder="0x... (Enter artist-specific Async Art contract address)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <p class="text-xs text-gray-500 mt-1">Enter the contract address for artist-specific Async Art contracts</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-6 flex flex-wrap gap-3">
+                <button
+                    id="fetchButton"
+                    class="flex-grow sm:flex-grow-0 inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                >
+                    <!-- Search Icon SVG -->
+                    <svg class="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <span>Fetch NFTs</span>
+                </button>
+                <button
+                    id="downloadV1Button"
+                    class="inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                >
+                    <!-- Download Icon SVG -->
+                    <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    V1 CSV
+                </button>
+                <button
+                    id="downloadV2Button"
+                    class="inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                >
+                    <!-- Download Icon SVG -->
+                    <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    V2 CSV
+                </button>
+                <button
+                    id="downloadBlueprintsButton"
+                    class="inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                >
+                    <!-- Download Icon SVG -->
+                    <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Blueprints CSV
+                </button>
+                <button
+                    id="downloadCustomButton"
+                    class="inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                >
+                    <!-- Download Icon SVG -->
+                    <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Custom CSV
+                </button>
+            </div>
+            
+            <!-- Status Message Area -->
+            <div id="statusContainer" class="text-center mt-4"></div>
+
+            <!-- Summary Area -->
+            <div id="summaryContainer" class="mt-6"></div>
+
+            <!-- NFT Table Area -->
+            <div id="tableContainer" class="mt-8"></div>
+
+        </div>
+    </div>
+
+    <!-- Error Modal (hidden by default) -->
+    <div id="errorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div class="flex items-center text-red-500 mb-4">
+                <!-- Alert Triangle Icon SVG -->
+                <svg class="h-6 w-6 mr-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <h3 class="text-lg font-bold text-gray-800">Error</h3>
+            </div>
+            <p id="errorMessage" class="text-gray-600 mb-6"></p>
+            <button id="closeErrorModal" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors duration-200">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Main Application Logic ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuration ---
+            const ASYNC_ART_CONTRACTS = {
+                v1: {
+                    address: '0x6c424c25e9f1fff9642cb5b7750b0db7312c29ad',
+                    name: 'Async Art V1'
+                },
+                v2: {
+                    address: '0xb6dae651468e9593e4581705a09c10a76ac1e0c8',
+                    name: 'Async Art V2'
+                },
+                blueprints: {
+                    address: '0xc143bbfcDBdBEd6d454803804752a064A622C1F3',
+                    name: 'Async Blueprints'
+                }
+            };
+            const OPENSEA_API_BASE_URL = 'https://api.opensea.io/api/v2';
+            
+            // --- State Variables ---
+            let nftsV1 = [];
+            let nftsV2 = [];
+            let nftsBlueprints = [];
+            let nftsCustom = [];
+            let isLoading = false;
+
+            // --- DOM Element References ---
+            const apiKeyInput = document.getElementById('apiKey');
+            const contractSelector = document.getElementById('contractSelector');
+            const customContractContainer = document.getElementById('customContractContainer');
+            const customContractInput = document.getElementById('customContract');
+            const fetchButton = document.getElementById('fetchButton');
+            const downloadV1Button = document.getElementById('downloadV1Button');
+            const downloadV2Button = document.getElementById('downloadV2Button');
+            const downloadBlueprintsButton = document.getElementById('downloadBlueprintsButton');
+            const downloadCustomButton = document.getElementById('downloadCustomButton');
+            const statusContainer = document.getElementById('statusContainer');
+            const summaryContainer = document.getElementById('summaryContainer');
+            const tableContainer = document.getElementById('tableContainer');
+            const errorModal = document.getElementById('errorModal');
+            const errorMessage = document.getElementById('errorMessage');
+            const closeErrorModalButton = document.getElementById('closeErrorModal');
+
+            // --- Initial Setup ---
+            updateButtonStates();
+
+            // --- Event Listeners ---
+            fetchButton.addEventListener('click', fetchAllNfts);
+            downloadV1Button.addEventListener('click', () => downloadCSV('v1'));
+            downloadV2Button.addEventListener('click', () => downloadCSV('v2'));
+            downloadBlueprintsButton.addEventListener('click', () => downloadCSV('blueprints'));
+            downloadCustomButton.addEventListener('click', () => downloadCSV('custom'));
+            closeErrorModalButton.addEventListener('click', hideError);
+            apiKeyInput.addEventListener('input', updateButtonStates);
+            contractSelector.addEventListener('change', handleContractSelection);
+            customContractInput.addEventListener('input', updateButtonStates);
+
+            // --- Core Functions ---
+            
+            function handleContractSelection() {
+                const value = contractSelector.value;
+                if (value === 'custom') {
+                    customContractContainer.classList.remove('hidden');
+                } else {
+                    customContractContainer.classList.add('hidden');
+                }
+                updateButtonStates();
+            }
+
+            function updateButtonStates() {
+                const contractSelection = contractSelector.value;
+                const customContractValid = contractSelection !== 'custom' || 
+                    (customContractInput.value && customContractInput.value.match(/^0x[a-fA-F0-9]{40}$/));
+                
+                fetchButton.disabled = isLoading || !apiKeyInput.value || !customContractValid;
+                downloadV1Button.disabled = isLoading || nftsV1.length === 0;
+                downloadV2Button.disabled = isLoading || nftsV2.length === 0;
+                downloadBlueprintsButton.disabled = isLoading || nftsBlueprints.length === 0;
+                downloadCustomButton.disabled = isLoading || nftsCustom.length === 0;
+            }
+
+            function setStatus(message, isError = false) {
+                statusContainer.innerHTML = `<p class="${isError ? 'text-red-600' : 'text-gray-600'}">${message}</p>`;
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorModal.classList.remove('hidden');
+            }
+
+            function hideError() {
+                errorModal.classList.add('hidden');
+                setStatus('');
+            }
+
+            function showSummary() {
+                const totalNfts = nftsV1.length + nftsV2.length + nftsBlueprints.length + nftsCustom.length;
+                if (totalNfts === 0) {
+                    summaryContainer.innerHTML = '';
+                    return;
+                }
+
+                const hasCustom = nftsCustom.length > 0;
+                const gridCols = hasCustom ? 'md:grid-cols-5' : 'md:grid-cols-4';
+
+                const summaryHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-green-800 mb-3">Fetch Complete!</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 ${gridCols} gap-4 text-sm">
+                            <div class="text-center">
+                                <span class="block font-medium text-gray-700">Total NFTs</span>
+                                <span class="text-2xl font-bold text-green-600">${totalNfts}</span>
+                            </div>
+                            <div class="text-center">
+                                <span class="block font-medium text-gray-700">V1 Contract</span>
+                                <span class="text-xl font-bold text-blue-600">${nftsV1.length}</span>
+                            </div>
+                            <div class="text-center">
+                                <span class="block font-medium text-gray-700">V2 Contract</span>
+                                <span class="text-xl font-bold text-green-600">${nftsV2.length}</span>
+                            </div>
+                            <div class="text-center">
+                                <span class="block font-medium text-gray-700">Blueprints</span>
+                                <span class="text-xl font-bold text-purple-600">${nftsBlueprints.length}</span>
+                            </div>
+                            ${hasCustom ? `
+                            <div class="text-center">
+                                <span class="block font-medium text-gray-700">Custom</span>
+                                <span class="text-xl font-bold text-orange-600">${nftsCustom.length}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                summaryContainer.innerHTML = summaryHTML;
+            }
+            
+            function renderTable() {
+                const allNfts = [
+                    ...nftsV1.map(nft => ({...nft, version: 'V1'})), 
+                    ...nftsV2.map(nft => ({...nft, version: 'V2'})),
+                    ...nftsBlueprints.map(nft => ({...nft, version: 'Blueprints'})),
+                    ...nftsCustom.map(nft => ({...nft, version: 'Custom'}))
+                ];
+                
+                if (allNfts.length === 0) {
+                    tableContainer.innerHTML = '';
+                    return;
+                }
+                
+                const tableHTML = `
+                    <h3 class="text-xl font-semibold text-gray-800">NFT Details</h3>
+                    <div class="mt-6 w-full max-h-[600px] overflow-y-auto rounded-lg border border-gray-200">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Contract</th>
+                                    <th scope="col" class="px-6 py-3">Token ID</th>
+                                    <th scope="col" class="px-6 py-3">Name</th>
+                                    <th scope="col" class="px-6 py-3">Collection</th>
+                                    <th scope="col" class="px-6 py-3">Image URL</th>
+                                    <th scope="col" class="px-6 py-3">Metadata URL</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allNfts.map((nft, index) => `
+                                    <tr class="bg-white border-b hover:bg-gray-50">
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 text-xs font-medium rounded ${
+                                                nft.version === 'V1' ? 'bg-blue-100 text-blue-800' : 
+                                                nft.version === 'V2' ? 'bg-green-100 text-green-800' : 
+                                                nft.version === 'Blueprints' ? 'bg-purple-100 text-purple-800' :
+                                                'bg-orange-100 text-orange-800'
+                                            }">
+                                                ${nft.version}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 font-mono text-xs">${nft.identifier}</td>
+                                        <td class="px-6 py-4">${nft.name || 'Unnamed'}</td>
+                                        <td class="px-6 py-4">${nft.collection}</td>
+                                        <td class="px-6 py-4">
+                                            ${nft.image_url ? `<a href="${nft.image_url}" target="_blank" class="text-blue-600 hover:underline text-xs">View</a>` : 'N/A'}
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            ${nft.metadata_url ? `<a href="${nft.metadata_url}" target="_blank" class="text-blue-600 hover:underline text-xs">View</a>` : 'N/A'}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                tableContainer.innerHTML = tableHTML;
+            }
+
+            // Extract IPFS URL if present
+            function extractIPFSUrl(url) {
+                if (!url) return '';
+                
+                // Convert IPFS gateway URLs to standard IPFS format
+                if (url.includes('ipfs.io/ipfs/')) {
+                    return url.replace('https://ipfs.io/ipfs/', 'ipfs://');
+                } else if (url.includes('gateway.pinata.cloud/ipfs/')) {
+                    return url.replace('https://gateway.pinata.cloud/ipfs/', 'ipfs://');
+                } else if (url.includes('cloudflare-ipfs.com/ipfs/')) {
+                    return url.replace('https://cloudflare-ipfs.com/ipfs/', 'ipfs://');
+                } else if (url.includes('dweb.link/ipfs/')) {
+                    return url.replace('https://dweb.link/ipfs/', 'ipfs://');
+                } else if (url.startsWith('ipfs://')) {
+                    return url;
+                }
+                
+                return url;
+            }
+
+            async function fetchContractNfts(contractAddress, contractName) {
+                const apiKey = apiKeyInput.value;
+                let allNfts = [];
+                let nextCursor = null;
+
+                try {
+                    let keepFetching = true;
+                    while (keepFetching) {
+                        const url = `${OPENSEA_API_BASE_URL}/chain/ethereum/contract/${contractAddress}/nfts?limit=50${nextCursor ? `&next=${nextCursor}` : ''}`;
+                        
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: { 
+                                'X-API-KEY': apiKey,
+                                'accept': 'application/json'
+                            }
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401 || response.status === 403) {
+                                throw new Error("Authentication failed. Please check if your OpenSea API key is correct.");
+                            }
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || `HTTP error! Status: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        
+                        if (data.nfts && data.nfts.length > 0) {
+                            allNfts = [...allNfts, ...data.nfts];
+                            setStatus(`Fetching ${contractName}: ${allNfts.length} NFTs found so far...`);
+                        }
+
+                        if (data.next) {
+                            nextCursor = data.next;
+                        } else {
+                            keepFetching = false;
+                        }
+                    }
+                    
+                    return allNfts;
+
+                } catch (e) {
+                    console.error(`Failed to fetch NFTs for ${contractName}:`, e);
+                    throw e;
+                }
+            }
+
+            async function fetchAllNfts() {
+                const apiKey = apiKeyInput.value;
+                const selectedContract = contractSelector.value;
+
+                if (!apiKey) {
+                    showError("Please provide an OpenSea API key.");
+                    return;
+                }
+
+                if (selectedContract === 'custom') {
+                    const customAddress = customContractInput.value;
+                    if (!customAddress || !customAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                        showError("Please provide a valid Ethereum contract address.");
+                        return;
+                    }
+                }
+
+                isLoading = true;
+                nftsV1 = [];
+                nftsV2 = [];
+                nftsBlueprints = [];
+                nftsCustom = [];
+                updateButtonStates();
+                setStatus('Initializing fetch...');
+                tableContainer.innerHTML = '';
+                summaryContainer.innerHTML = '';
+
+                try {
+                    // Fetch V1 contract
+                    if (selectedContract === 'v1' || selectedContract === 'v1v2' || selectedContract === 'all') {
+                        setStatus('Fetching from Async Art V1 contract...');
+                        nftsV1 = await fetchContractNfts(ASYNC_ART_CONTRACTS.v1.address, ASYNC_ART_CONTRACTS.v1.name);
+                        renderTable();
+                    }
+
+                    // Fetch V2 contract
+                    if (selectedContract === 'v2' || selectedContract === 'v1v2' || selectedContract === 'all') {
+                        setStatus('Fetching from Async Art V2 contract...');
+                        nftsV2 = await fetchContractNfts(ASYNC_ART_CONTRACTS.v2.address, ASYNC_ART_CONTRACTS.v2.name);
+                        renderTable();
+                    }
+
+                    // Fetch Blueprints contract
+                    if (selectedContract === 'blueprints' || selectedContract === 'all') {
+                        setStatus('Fetching from Async Blueprints contract...');
+                        nftsBlueprints = await fetchContractNfts(ASYNC_ART_CONTRACTS.blueprints.address, ASYNC_ART_CONTRACTS.blueprints.name);
+                        renderTable();
+                    }
+
+                    // Fetch Custom contract
+                    if (selectedContract === 'custom') {
+                        const customAddress = customContractInput.value;
+                        setStatus(`Fetching from custom contract ${customAddress}...`);
+                        nftsCustom = await fetchContractNfts(customAddress, 'Custom Contract');
+                        renderTable();
+                    }
+
+                    const totalNfts = nftsV1.length + nftsV2.length + nftsBlueprints.length + nftsCustom.length;
+                    setStatus(`Fetch complete! Found ${totalNfts} total NFTs.`, false);
+                    
+                    showSummary();
+
+                    if (totalNfts === 0) {
+                        showError("No NFTs found in the selected contract(s).");
+                    }
+
+                } catch (e) {
+                    console.error("Failed to fetch NFTs:", e);
+                    showError(e.message || "An unknown error occurred. Check the console for details.");
+                    setStatus('Fetch failed.', true);
+                } finally {
+                    isLoading = false;
+                    updateButtonStates();
+                }
+            }
+
+            function downloadCSV(version) {
+                let nfts, contractInfo;
+                
+                switch(version) {
+                    case 'v1':
+                        nfts = nftsV1;
+                        contractInfo = ASYNC_ART_CONTRACTS.v1;
+                        break;
+                    case 'v2':
+                        nfts = nftsV2;
+                        contractInfo = ASYNC_ART_CONTRACTS.v2;
+                        break;
+                    case 'blueprints':
+                        nfts = nftsBlueprints;
+                        contractInfo = ASYNC_ART_CONTRACTS.blueprints;
+                        break;
+                    case 'custom':
+                        nfts = nftsCustom;
+                        contractInfo = {
+                            address: customContractInput.value,
+                            name: 'Custom Contract'
+                        };
+                        break;
+                }
+                
+                if (nfts.length === 0) {
+                    showError(`No NFT data to download for ${contractInfo.name}.`);
+                    return;
+                }
+
+                const headers = ["contract_address", "token_id", "name", "collection", "image_url", "metadata_url", "opensea_url"];
+                const csvContent = [
+                    headers.join(','),
+                    ...nfts.map(nft => [
+                        contractInfo.address,
+                        `"${nft.identifier}"`,
+                        `"${nft.name || ''}"`,
+                        `"${nft.collection}"`,
+                        `"${extractIPFSUrl(nft.image_url) || ''}"`,
+                        `"${extractIPFSUrl(nft.metadata_url) || ''}"`,
+                        `"${nft.opensea_url || ''}"`,
+                    ].join(','))
+                ].join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `async_art_${version}_nfts.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        });
+    </script>
+
+</body>
+</html>
