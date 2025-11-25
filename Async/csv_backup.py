@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-XCOPY FINAL – short, complete, never stuck, with --workers support
+Backup tool short, complete, never stuck, with --workers support
 """
 
 import csv
@@ -202,7 +202,7 @@ class XCOPYDownloader:
                 for future in as_completed([exe.submit(task, i) for i in items]):
                     future.result()
 
-        print("\n🎉 ALL DONE – your XCOPY archive is complete!")
+        print("\n🎉 ALL DONE – your NFT backup archive is complete!")
         print(f"   Total unique files: {len(self.downloaded)}")
         print(f"   Folder: {self.files_dir.resolve()}")
 
