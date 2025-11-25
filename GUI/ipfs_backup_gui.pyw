@@ -306,9 +306,61 @@ class IPFSBackupGUI:
         self.root.after(1000, self.check_ipfs_status)
         
     def setup_ui(self):
-        # Configure ttk style for always-visible scrollbar
+        # Configure ttk style for always-visible scrollbar and buttons
         style = ttk.Style()
-        style.theme_use('clam')  # Use a theme that supports visible scrollbars
+        style.theme_use('clam')  # Use a theme that supports visible scrollbars and button styling
+
+        # Configure button styles for cross-platform color support
+        style.configure("Green.TButton",
+                       background="#27ae60",
+                       foreground="white",
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=("Arial", 12, "bold"),
+                       padding=(30, 10))
+        style.map("Green.TButton",
+                 background=[('active', '#2ecc71'), ('pressed', '#229954')])
+
+        style.configure("Red.TButton",
+                       background="#e74c3c",
+                       foreground="white",
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=("Arial", 12, "bold"),
+                       padding=(30, 10))
+        style.map("Red.TButton",
+                 background=[('active', '#ec7063'), ('pressed', '#c0392b')],
+                 foreground=[('disabled', 'white')])
+
+        style.configure("Blue.TButton",
+                       background="#3498db",
+                       foreground="white",
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=("Arial", 10),
+                       padding=(20, 10))
+        style.map("Blue.TButton",
+                 background=[('active', '#5dade2'), ('pressed', '#2980b9')])
+
+        style.configure("Purple.TButton",
+                       background="#9b59b6",
+                       foreground="white",
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=("Arial", 10),
+                       padding=(20, 10))
+        style.map("Purple.TButton",
+                 background=[('active', '#bb8fce'), ('pressed', '#8e44ad')])
+
+        style.configure("Gray.TButton",
+                       background="#95a5a6",
+                       foreground="white",
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=("Arial", 10),
+                       padding=(15, 5))
+        style.map("Gray.TButton",
+                 background=[('active', '#b2babb'), ('pressed', '#7f8c8d')])
 
         # Header
         header = tk.Frame(self.root, bg="#2c3e50", height=80)
@@ -328,14 +380,14 @@ class IPFSBackupGUI:
         folder_frame.pack(fill=tk.X, pady=(0, 20))
         
         tk.Label(folder_frame, text="CSV Folder:", font=("Arial", 10, "bold")).pack(side=tk.LEFT)
-        self.folder_label = tk.Label(folder_frame, text=str(self.csv_folder), 
+        self.folder_label = tk.Label(folder_frame, text=str(self.csv_folder),
                                      font=("Arial", 10), fg="#3498db")
         self.folder_label.pack(side=tk.LEFT, padx=10)
-        
-        tk.Button(folder_frame, text="Change Folder", command=self.change_folder,
-                 bg="#3498db", fg="white", relief=tk.FLAT, padx=15).pack(side=tk.RIGHT)
-        tk.Button(folder_frame, text="Refresh", command=self.scan_csv_files,
-                 bg="#27ae60", fg="white", relief=tk.FLAT, padx=15).pack(side=tk.RIGHT, padx=5)
+
+        ttk.Button(folder_frame, text="Change Folder", command=self.change_folder,
+                  style="Blue.TButton").pack(side=tk.RIGHT)
+        ttk.Button(folder_frame, text="Refresh", command=self.scan_csv_files,
+                  style="Green.TButton").pack(side=tk.RIGHT, padx=5)
         
         # CSV file selection
         selection_frame = tk.LabelFrame(main, text="Select CSV Files to Download", 
@@ -361,11 +413,11 @@ class IPFSBackupGUI:
         # Select all/none buttons
         select_frame = tk.Frame(main)
         select_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        tk.Button(select_frame, text="Select All", command=self.select_all,
-                 bg="#95a5a6", fg="white", relief=tk.FLAT, padx=15).pack(side=tk.LEFT, padx=5)
-        tk.Button(select_frame, text="Select None", command=self.select_none,
-                 bg="#95a5a6", fg="white", relief=tk.FLAT, padx=15).pack(side=tk.LEFT)
+
+        ttk.Button(select_frame, text="Select All", command=self.select_all,
+                  style="Gray.TButton").pack(side=tk.LEFT, padx=5)
+        ttk.Button(select_frame, text="Select None", command=self.select_none,
+                  style="Gray.TButton").pack(side=tk.LEFT)
         
         # Workers selection
         workers_frame = tk.Frame(select_frame)
@@ -402,29 +454,26 @@ class IPFSBackupGUI:
         # Control buttons
         button_frame = tk.Frame(main)
         button_frame.pack(fill=tk.X)
-        
-        self.start_button = tk.Button(button_frame, text="Start Download", 
-                                      command=self.start_download,
-                                      bg="#27ae60", fg="white", font=("Arial", 12, "bold"),
-                                      relief=tk.FLAT, padx=30, pady=10)
+
+        self.start_button = ttk.Button(button_frame, text="Start Download",
+                                       command=self.start_download,
+                                       style="Green.TButton")
         self.start_button.pack(side=tk.LEFT, padx=5)
-        
-        self.stop_button = tk.Button(button_frame, text="Stop", 
-                                     command=self.stop_download,
-                                     bg="#e74c3c", fg="white", font=("Arial", 12, "bold"),
-                                     relief=tk.FLAT, padx=30, pady=10, state=tk.DISABLED)
+
+        self.stop_button = ttk.Button(button_frame, text="Stop",
+                                      command=self.stop_download,
+                                      style="Red.TButton")
         self.stop_button.pack(side=tk.LEFT, padx=5)
-        
-        self.check_ipfs_button = tk.Button(button_frame, text="Check IPFS",
-                                           command=self.check_ipfs_status,
-                                           bg="#3498db", fg="white", font=("Arial", 10),
-                                           relief=tk.FLAT, padx=20, pady=10)
+        self.stop_button.state(['disabled'])
+
+        self.check_ipfs_button = ttk.Button(button_frame, text="Check IPFS",
+                                            command=self.check_ipfs_status,
+                                            style="Blue.TButton")
         self.check_ipfs_button.pack(side=tk.RIGHT, padx=5)
 
-        self.open_folder_button = tk.Button(button_frame, text="Open Files Folder",
-                                            command=self.open_files_folder,
-                                            bg="#9b59b6", fg="white", font=("Arial", 10),
-                                            relief=tk.FLAT, padx=20, pady=10)
+        self.open_folder_button = ttk.Button(button_frame, text="Open Files Folder",
+                                             command=self.open_files_folder,
+                                             style="Purple.TButton")
         self.open_folder_button.pack(side=tk.RIGHT, padx=5)
         
     def change_folder(self):
@@ -621,10 +670,10 @@ class IPFSBackupGUI:
         # Check if IPFS is running (and offer to start it)
         if not self.check_and_start_ipfs():
             return
-        
+
         # Disable start button, enable stop button
-        self.start_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
+        self.start_button.state(['disabled'])
+        self.stop_button.state(['!disabled'])
         
         # Reset progress
         self.progress_bar['value'] = 0
@@ -695,21 +744,19 @@ class IPFSBackupGUI:
         button_frame = tk.Frame(dialog)
         button_frame.pack(pady=15)
 
-        open_btn = tk.Button(button_frame, text="Open File Location",
-                            command=lambda: [self.open_files_folder(), dialog.destroy()],
-                            bg="#27ae60", fg="white", font=("Arial", 10, "bold"),
-                            relief=tk.FLAT, padx=20, pady=8)
+        open_btn = ttk.Button(button_frame, text="Open File Location",
+                             command=lambda: [self.open_files_folder(), dialog.destroy()],
+                             style="Green.TButton")
         open_btn.pack(side=tk.LEFT, padx=5)
 
-        close_btn = tk.Button(button_frame, text="Close",
-                             command=dialog.destroy,
-                             bg="#95a5a6", fg="white", font=("Arial", 10),
-                             relief=tk.FLAT, padx=20, pady=8)
+        close_btn = ttk.Button(button_frame, text="Close",
+                              command=dialog.destroy,
+                              style="Gray.TButton")
         close_btn.pack(side=tk.LEFT, padx=5)
 
     def _download_finished(self):
-        self.start_button.config(state=tk.NORMAL)
-        self.stop_button.config(state=tk.DISABLED)
+        self.start_button.state(['!disabled'])
+        self.stop_button.state(['disabled'])
 
 def main():
     root = tk.Tk()
