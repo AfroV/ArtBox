@@ -20,18 +20,38 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class IPFSManager:
     """Handles IPFS daemon checking and starting"""
-    
+
     def __init__(self):
         self.ipfs_process = None
-        self.daemon_url = "http://127.0.0.1:8080"
-        
+        self.daemon_url = None
+        self.gateway_port = None
+        # Common IPFS gateway ports to check
+        self.common_ports = [8080, 5001, 5002, 5003, 8081, 9090]
+
     def is_running(self):
-        """Check if IPFS daemon is running"""
-        try:
-            response = requests.get(f"{self.daemon_url}/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi", timeout=3)
-            return response.status_code == 200
-        except:
-            return False
+        """Check if IPFS daemon is running on any common port"""
+        # If we already found a working port, check it first
+        if self.daemon_url:
+            try:
+                response = requests.get(f"{self.daemon_url}/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi", timeout=2)
+                if response.status_code == 200:
+                    return True
+            except:
+                pass
+
+        # Try to find IPFS on common ports
+        for port in self.common_ports:
+            try:
+                test_url = f"http://127.0.0.1:{port}"
+                response = requests.get(f"{test_url}/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi", timeout=2)
+                if response.status_code == 200:
+                    self.daemon_url = test_url
+                    self.gateway_port = port
+                    return True
+            except:
+                continue
+
+        return False
     
     def is_installed(self):
         """Check if IPFS is installed"""
@@ -90,13 +110,14 @@ class IPFSManager:
             return "https://docs.ipfs.tech/install/ipfs-desktop/#linux"
 
 class IPFSBackupDownloader:
-    def __init__(self, output_dir="ipfs_backup"):
+    def __init__(self, output_dir="ipfs_backup", gateway_url="http://127.0.0.1:8080"):
         self.files_dir = Path(output_dir) / "files"
         self.files_dir.mkdir(parents=True, exist_ok=True)
         self.downloaded = set()
         self.lock = threading.Lock()
         self.progress_file = Path(output_dir) / "download_progress.json"
         self.session = requests.Session()
+        self.gateway_url = gateway_url
         self.cid_pattern = re.compile(r'(?:https?://[^/\s]*ipfs[^/\s]*/(?:ipfs/)?|ipfs://)?(?:(Qm[a-zA-Z0-9]{44})|(baf[a-z0-9]{50,}))', re.I)
         self.completed_items = 0
         self.total_items = 0
@@ -121,7 +142,7 @@ class IPFSBackupDownloader:
                 self.callback(self.completed_items, self.total_items, percentage)
 
     def _download(self, cid, quiet=False):
-        url = f"http://127.0.0.1:8080/ipfs/{cid}"
+        url = f"{self.gateway_url}/ipfs/{cid}"
         for attempt in range(5):  # Reduced from 40 to 5 attempts
             if self.stop_event.is_set():
                 return None
@@ -558,7 +579,8 @@ class IPFSBackupGUI:
     def check_ipfs_status(self):
         """Check IPFS status and show indicator"""
         if self.ipfs_manager.is_running():
-            self.status_label.config(text="✅ IPFS daemon is running", fg="#27ae60")
+            port_info = f" (port {self.ipfs_manager.gateway_port})" if self.ipfs_manager.gateway_port else ""
+            self.status_label.config(text=f"✅ IPFS daemon is running{port_info}", fg="#27ae60")
         else:
             # Check if installed or not
             if not self.ipfs_manager.is_installed():
@@ -692,8 +714,10 @@ class IPFSBackupGUI:
             # Show loading message
             self.root.after(0, lambda: self.progress_label.config(text="Loading CSV files..."))
             self.root.after(0, lambda: self.status_label.config(text="Please wait..."))
-            
-            self.downloader = IPFSBackupDownloader("ipfs_backup")
+
+            # Get the gateway URL from the IPFS manager
+            gateway_url = self.ipfs_manager.daemon_url or "http://127.0.0.1:8080"
+            self.downloader = IPFSBackupDownloader("ipfs_backup", gateway_url=gateway_url)
             self.downloader.callback = self.update_progress
             self.downloader.run(selected_files, workers=self.workers_var.get())
             
