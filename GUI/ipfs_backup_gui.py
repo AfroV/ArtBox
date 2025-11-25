@@ -331,57 +331,67 @@ class IPFSBackupGUI:
         style = ttk.Style()
         style.theme_use('clam')  # Use a theme that supports visible scrollbars and custom colors
 
-        # Configure button styles
+        # Configure button styles with better macOS compatibility
         style.configure("Green.TButton",
                        background="#27ae60",
                        foreground="white",
-                       borderwidth=0,
+                       borderwidth=1,
+                       relief="raised",
                        focuscolor='none',
                        font=("Arial", 12, "bold"),
                        padding=(30, 10))
         style.map("Green.TButton",
-                 background=[('active', '#2ecc71'), ('pressed', '#229954')])
+                 background=[('active', '#2ecc71'), ('pressed', '#229954')],
+                 relief=[('pressed', 'sunken')])
 
         style.configure("Red.TButton",
                        background="#e74c3c",
                        foreground="white",
-                       borderwidth=0,
+                       borderwidth=1,
+                       relief="raised",
                        focuscolor='none',
                        font=("Arial", 12, "bold"),
                        padding=(30, 10))
         style.map("Red.TButton",
                  background=[('active', '#ec7063'), ('pressed', '#c0392b')],
-                 foreground=[('disabled', 'white')])
+                 foreground=[('disabled', 'white')],
+                 relief=[('pressed', 'sunken')])
 
         style.configure("Blue.TButton",
                        background="#3498db",
                        foreground="white",
-                       borderwidth=0,
+                       borderwidth=1,
+                       relief="raised",
                        focuscolor='none',
                        font=("Arial", 10),
                        padding=(20, 10))
         style.map("Blue.TButton",
-                 background=[('active', '#5dade2'), ('pressed', '#2e86c1')])
+                 background=[('active', '#5dade2'), ('pressed', '#2980b9')],
+                 relief=[('pressed', 'sunken')])
 
         style.configure("Purple.TButton",
                        background="#9b59b6",
                        foreground="white",
-                       borderwidth=0,
+                       borderwidth=1,
+                       relief="raised",
                        focuscolor='none',
                        font=("Arial", 10),
                        padding=(20, 10))
         style.map("Purple.TButton",
-                 background=[('active', '#af7ac5'), ('pressed', '#7d3c98')])
+                 background=[('active', '#bb8fce'), ('pressed', '#8e44ad')],
+                 relief=[('pressed', 'sunken')])
 
         style.configure("Gray.TButton",
                        background="#95a5a6",
                        foreground="white",
-                       borderwidth=0,
+                       borderwidth=1,
+                       relief="raised",
                        focuscolor='none',
                        font=("Arial", 10),
                        padding=(15, 5))
         style.map("Gray.TButton",
-                 background=[('active', '#b2babb'), ('pressed', '#7f8c8d')])
+                 background=[('active', '#b2babb'), ('pressed', '#7f8c8d')],
+                 relief=[('pressed', 'sunken')])
 
         # Header
         header = tk.Frame(self.root, bg="#2c3e50", height=80)
